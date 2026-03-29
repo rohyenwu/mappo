@@ -738,7 +738,11 @@ class ShareDummyVecEnv(ShareVecEnv):
     def close(self):
         for env in self.envs:
             env.close()
-    
+
+    def get_throughput(self):
+        """첫 번째 env의 throughput 반환 (WiFi 전용)."""
+        return self.envs[0].get_throughput()
+
     def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])

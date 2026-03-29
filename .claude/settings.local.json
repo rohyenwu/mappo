@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(python3 -c \"import wandb; print\\(wandb.__version__\\)\")",
+      "Bash(wandb status:*)"
+    ]
+  }
+}

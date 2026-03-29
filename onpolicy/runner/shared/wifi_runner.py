@@ -1,4 +1,6 @@
 import time
+import csv
+import os
 import numpy as np
 import torch
 from onpolicy.runner.shared.base_runner import Runner
@@ -22,6 +24,12 @@ class WiFiRunner(Runner):
 
     def __init__(self, config):
         super(WiFiRunner, self).__init__(config)
+
+        # CSV 파일 초기화
+        self.train_csv = os.path.join(str(self.log_dir), 'train_throughput.csv')
+        self.eval_csv  = os.path.join(str(self.log_dir), 'eval_throughput.csv')
+        self._csv_initialized = False
+        self._eval_csv_initialized = False
 
     # ──────────────────────────────────────────────────────────────────────────
     # 메인 학습 루프
@@ -73,6 +81,10 @@ class WiFiRunner(Runner):
                 train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
                 print(f"  average step reward: {train_infos['average_step_rewards']:.4f}")
                 self.log_train(train_infos, total_num_steps)
+
+                # throughput 측정 및 CSV 저장
+                tp = self.envs.get_throughput()
+                self._log_throughput(tp, total_num_steps, tag='train')
 
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
@@ -154,13 +166,13 @@ class WiFiRunner(Runner):
             ((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32
         )
 
-        active_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-        active_masks[dones == True] = np.zeros(
-            ((dones == True).sum(), 1), dtype=np.float32
-        )
-        active_masks[dones_env == True] = np.ones(
-            ((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32
-        )
+        # AO였던 에이전트만 actor 학습에 포함
+        active_masks = np.array(
+            [[[1.0] if info[aid]['decided'] else [0.0]
+              for aid in range(self.num_agents)]
+             for info in infos],
+            dtype=np.float32,
+        )  # shape: (n_rollout_threads, num_agents, 1)
 
         bad_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
@@ -178,6 +190,31 @@ class WiFiRunner(Runner):
     # ──────────────────────────────────────────────────────────────────────────
     # 평가
     # ──────────────────────────────────────────────────────────────────────────
+
+    def _log_throughput(self, tp: dict, total_num_steps: int, tag: str):
+        """throughput 출력 및 CSV 저장."""
+        print(f"  [{tag}] throughput/system:    {tp['throughput/system']:.4f}")
+        print(f"  [{tag}] throughput/mld_total: {tp['throughput/mld_total']:.4f}")
+        print(f"  [{tag}] throughput/sld_total: {tp['throughput/sld_total']:.4f}")
+        for link in ['2.4GHz', '5GHz', '6GHz']:
+            print(
+                f"  [{tag}] {link}: "
+                f"total={tp[f'throughput/{link}/total']:.4f}  "
+                f"mld={tp[f'throughput/{link}/mld']:.4f}  "
+                f"sld={tp[f'throughput/{link}/sld']:.4f}"
+            )
+
+        csv_path = self.train_csv if tag == 'train' else self.eval_csv
+        init_flag = '_csv_initialized' if tag == 'train' else '_eval_csv_initialized'
+        fieldnames = ['total_num_steps'] + list(tp.keys())
+
+        with open(csv_path, 'a', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            if not getattr(self, init_flag):
+                writer.writeheader()
+                setattr(self, init_flag, True)
+            row = {'total_num_steps': total_num_steps, **tp}
+            writer.writerow(row)
 
     @torch.no_grad()
     def eval(self, total_num_steps):
@@ -229,3 +266,7 @@ class WiFiRunner(Runner):
             {'eval_average_episode_rewards': np.sum(eval_episode_rewards, axis=0)},
             total_num_steps,
         )
+
+        # eval throughput 측정 및 CSV 저장
+        tp = self.eval_envs.get_throughput()
+        self._log_throughput(tp, total_num_steps, tag='eval')
