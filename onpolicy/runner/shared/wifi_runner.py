@@ -253,8 +253,8 @@ class WiFiRunner(Runner):
         """action 분포(CW level 0~4 비율) 출력, wandb 로깅, CSV 저장.
         decided=True인 step의 action만 카운트.
         """
-        # active_masks[:-1]: (episode_length, n_rollout_threads, num_agents, 1)
-        decided = self.buffer.active_masks[:-1].flatten() > 0
+        # actions[t]에 대응하는 decided 여부는 active_masks[t+1]에 저장됨
+        decided = self.buffer.active_masks[1:].flatten() > 0
         flat_actions = self.buffer.actions.flatten()[decided].astype(int)
 
         total = len(flat_actions) if len(flat_actions) > 0 else 1
