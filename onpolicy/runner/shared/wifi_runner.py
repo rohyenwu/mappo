@@ -219,7 +219,7 @@ class WiFiRunner(Runner):
         print(f"  [{tag}] throughput/system:    {tp['throughput/system']:.4f}")
         print(f"  [{tag}] throughput/mld_total: {tp['throughput/mld_total']:.4f}")
         print(f"  [{tag}] throughput/sld_total: {tp['throughput/sld_total']:.4f}")
-        for link in ['2.4GHz', '5GHz', '6GHz']:
+        for link in ['2_4GHz', '5GHz', '6GHz']:
             print(
                 f"  [{tag}] {link}: "
                 f"total={tp[f'throughput/{link}/total']:.4f}  "
@@ -286,7 +286,7 @@ class WiFiRunner(Runner):
         print(f"  [{tag}] collision_rate/system:    {cr['collision_rate/system']:.4f}")
         print(f"  [{tag}] collision_rate/mld_total: {cr['collision_rate/mld_total']:.4f}")
         print(f"  [{tag}] collision_rate/sld_total: {cr['collision_rate/sld_total']:.4f}")
-        for link in ['2.4GHz', '5GHz', '6GHz']:
+        for link in ['2_4GHz', '5GHz', '6GHz']:
             print(
                 f"  [{tag}] {link}: "
                 f"total={cr[f'collision_rate/{link}/total']:.4f}  "

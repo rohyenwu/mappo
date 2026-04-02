@@ -265,18 +265,19 @@ class WiFiEnv:
         self.mld_collision_count = np.zeros(self.num_links, dtype=np.int64)
         self.sld_collision_count = np.zeros(self.num_links, dtype=np.int64)
 
-        # SLD 상태
+        # SLD 상태 (2.4GHz 링크에만 존재)
         self.sld_state = []
-        for _ in range(self.num_links):
+        for j in range(self.num_links):
             link_slds = []
-            for _ in range(self.num_sld):
-                cw = CW_MIN
-                link_slds.append({
-                    'cw':      cw,
-                    'backoff': int(np.random.randint(0, cw)),
-                    'retry':   0,
-                    'difs':    0,
-                })
+            if j == 0:  # 2.4GHz only
+                for _ in range(self.num_sld):
+                    cw = CW_MIN
+                    link_slds.append({
+                        'cw':      cw,
+                        'backoff': int(np.random.randint(0, cw)),
+                        'retry':   0,
+                        'difs':    0,
+                    })
             self.sld_state.append(link_slds)
 
     def _advance_one_slot(self, rewards: np.ndarray):
@@ -393,7 +394,7 @@ class WiFiEnv:
         """
         t = max(self.t - self.t_train_start, 1)
         pkt = PKT_PER_SUCCESS
-        link_names = ['2.4GHz', '5GHz', '6GHz']
+        link_names = ['2_4GHz', '5GHz', '6GHz']
 
         result = {}
 
@@ -429,7 +430,7 @@ class WiFiEnv:
             system, mld_total, sld_total,
             link0~2 (total/mld/sld)
         """
-        link_names = ['2.4GHz', '5GHz', '6GHz']
+        link_names = ['2_4GHz', '5GHz', '6GHz']
         result = {}
 
         for j in range(self.num_links):
