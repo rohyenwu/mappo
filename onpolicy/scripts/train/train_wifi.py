@@ -173,8 +173,7 @@ def main(args):
     envs      = make_train_env(all_args)
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
 
-    # num_agents: MLD-A(STA × 2링크) + MLD-B(STA × 3링크)
-    num_agents = all_args.num_mld_a * 2 + all_args.num_mld_b * 3
+    num_agents = len(envs.observation_space)
 
     config = {
         "all_args":  all_args,

@@ -331,6 +331,10 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
         elif cmd == 'get_spaces':
             remote.send(
                 (env.observation_space, env.share_observation_space, env.action_space))
+        elif cmd == 'get_throughput':
+            remote.send(env.get_throughput())
+        elif cmd == 'get_collision_rate':
+            remote.send(env.get_collision_rate())
         elif cmd == 'render_vulnerability':
             fr = env.render_vulnerability(data)
             remote.send((fr))
@@ -382,6 +386,16 @@ class ShareSubprocVecEnv(ShareVecEnv):
         for remote in self.remotes:
             remote.send(('reset_task', None))
         return np.stack([remote.recv() for remote in self.remotes])
+
+    def get_throughput(self):
+        """첫 번째 env의 throughput 반환 (WiFi 전용)."""
+        self.remotes[0].send(('get_throughput', None))
+        return self.remotes[0].recv()
+
+    def get_collision_rate(self):
+        """첫 번째 env의 collision_rate 반환 (WiFi 전용)."""
+        self.remotes[0].send(('get_collision_rate', None))
+        return self.remotes[0].recv()
 
     def close(self):
         if self.closed:
@@ -742,6 +756,10 @@ class ShareDummyVecEnv(ShareVecEnv):
     def get_throughput(self):
         """첫 번째 env의 throughput 반환 (WiFi 전용)."""
         return self.envs[0].get_throughput()
+
+    def get_collision_rate(self):
+        """첫 번째 env의 collision_rate 반환 (WiFi 전용)."""
+        return self.envs[0].get_collision_rate()
 
     def render(self, mode="human"):
         if mode == "rgb_array":

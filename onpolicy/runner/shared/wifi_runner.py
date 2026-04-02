@@ -25,11 +25,23 @@ class WiFiRunner(Runner):
     def __init__(self, config):
         super(WiFiRunner, self).__init__(config)
 
+        # use_wandb=True 이면 base_runner가 log_dir을 설정하지 않으므로 save_dir로 대체
+        if not hasattr(self, 'log_dir'):
+            self.log_dir = self.save_dir
+
         # CSV 파일 초기화
         self.train_csv = os.path.join(str(self.log_dir), 'train_throughput.csv')
         self.eval_csv  = os.path.join(str(self.log_dir), 'eval_throughput.csv')
         self._csv_initialized = False
         self._eval_csv_initialized = False
+
+        self.train_collision_csv = os.path.join(str(self.log_dir), 'train_collision_rate.csv')
+        self.eval_collision_csv  = os.path.join(str(self.log_dir), 'eval_collision_rate.csv')
+        self._collision_csv_initialized = False
+        self._eval_collision_csv_initialized = False
+
+        self.train_action_dist_csv = os.path.join(str(self.log_dir), 'train_action_dist.csv')
+        self._action_dist_csv_initialized = False
 
     # ──────────────────────────────────────────────────────────────────────────
     # 메인 학습 루프
@@ -86,6 +98,13 @@ class WiFiRunner(Runner):
                 tp = self.envs.get_throughput()
                 self._log_throughput(tp, total_num_steps, tag='train')
 
+                # 충돌률 측정 및 CSV 저장
+                cr = self.envs.get_collision_rate()
+                self._log_collision_rate(cr, total_num_steps, tag='train')
+
+                # action 분포 측정 및 CSV 저장
+                self._log_action_dist(total_num_steps)
+
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
 
@@ -103,6 +122,10 @@ class WiFiRunner(Runner):
         self.buffer.share_obs[0]        = share_obs.copy()
         self.buffer.obs[0]              = obs.copy()
         self.buffer.available_actions[0] = available_actions.copy()
+
+        # 모든 action 가능(sum=5) → need_decision=True → active
+        active_masks = (available_actions.sum(axis=-1, keepdims=True) > 1).astype(np.float32)
+        self.buffer.active_masks[0] = active_masks
 
     @torch.no_grad()
     def collect(self, step):
@@ -192,7 +215,7 @@ class WiFiRunner(Runner):
     # ──────────────────────────────────────────────────────────────────────────
 
     def _log_throughput(self, tp: dict, total_num_steps: int, tag: str):
-        """throughput 출력 및 CSV 저장."""
+        """throughput 출력, wandb 로깅, CSV 저장."""
         print(f"  [{tag}] throughput/system:    {tp['throughput/system']:.4f}")
         print(f"  [{tag}] throughput/mld_total: {tp['throughput/mld_total']:.4f}")
         print(f"  [{tag}] throughput/sld_total: {tp['throughput/sld_total']:.4f}")
@@ -204,6 +227,16 @@ class WiFiRunner(Runner):
                 f"sld={tp[f'throughput/{link}/sld']:.4f}"
             )
 
+        # wandb 로깅 (train/ 또는 eval/ 접두사로 구분)
+        if self.use_wandb:
+            import wandb
+            wandb_log = {f"{tag}/{k}": v for k, v in tp.items()}
+            wandb.log(wandb_log, step=total_num_steps)
+        else:
+            for k, v in tp.items():
+                self.writter.add_scalars(f"{tag}/{k}", {f"{tag}/{k}": v}, total_num_steps)
+
+        # CSV 저장
         csv_path = self.train_csv if tag == 'train' else self.eval_csv
         init_flag = '_csv_initialized' if tag == 'train' else '_eval_csv_initialized'
         fieldnames = ['total_num_steps'] + list(tp.keys())
@@ -214,6 +247,71 @@ class WiFiRunner(Runner):
                 writer.writeheader()
                 setattr(self, init_flag, True)
             row = {'total_num_steps': total_num_steps, **tp}
+            writer.writerow(row)
+
+    def _log_action_dist(self, total_num_steps: int):
+        """action 분포(CW level 0~4 비율) 출력, wandb 로깅, CSV 저장.
+        decided=True인 step의 action만 카운트.
+        """
+        # active_masks[:-1]: (episode_length, n_rollout_threads, num_agents, 1)
+        decided = self.buffer.active_masks[:-1].flatten() > 0
+        flat_actions = self.buffer.actions.flatten()[decided].astype(int)
+
+        total = len(flat_actions) if len(flat_actions) > 0 else 1
+        dist = {f'action_dist/cw_level_{a}': (flat_actions == a).sum() / total for a in range(5)}
+
+        cw_ranges = {0: '2~7', 1: '8~15', 2: '16~31', 3: '32~63', 4: '64~127'}
+        a_vals    = {0: 1.0, 1: 0.8, 2: 0.6, 3: 0.4, 4: 0.2}
+        print("  [train] action distribution:")
+        for a in range(5):
+            print(f"    CW level {a} (CW={cw_ranges[a]}, A={a_vals[a]}): {dist[f'action_dist/cw_level_{a}']:.4f}")
+
+        if self.use_wandb:
+            import wandb
+            wandb.log({f"train/{k}": v for k, v in dist.items()}, step=total_num_steps)
+        else:
+            for k, v in dist.items():
+                self.writter.add_scalars(f"train/{k}", {f"train/{k}": v}, total_num_steps)
+
+        fieldnames = ['total_num_steps'] + list(dist.keys())
+        with open(self.train_action_dist_csv, 'a', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            if not self._action_dist_csv_initialized:
+                writer.writeheader()
+                self._action_dist_csv_initialized = True
+            writer.writerow({'total_num_steps': total_num_steps, **dist})
+
+    def _log_collision_rate(self, cr: dict, total_num_steps: int, tag: str):
+        """충돌률 출력, wandb 로깅, CSV 저장."""
+        print(f"  [{tag}] collision_rate/system:    {cr['collision_rate/system']:.4f}")
+        print(f"  [{tag}] collision_rate/mld_total: {cr['collision_rate/mld_total']:.4f}")
+        print(f"  [{tag}] collision_rate/sld_total: {cr['collision_rate/sld_total']:.4f}")
+        for link in ['2.4GHz', '5GHz', '6GHz']:
+            print(
+                f"  [{tag}] {link}: "
+                f"total={cr[f'collision_rate/{link}/total']:.4f}  "
+                f"mld={cr[f'collision_rate/{link}/mld']:.4f}  "
+                f"sld={cr[f'collision_rate/{link}/sld']:.4f}"
+            )
+
+        if self.use_wandb:
+            import wandb
+            wandb_log = {f"{tag}/{k}": v for k, v in cr.items()}
+            wandb.log(wandb_log, step=total_num_steps)
+        else:
+            for k, v in cr.items():
+                self.writter.add_scalars(f"{tag}/{k}", {f"{tag}/{k}": v}, total_num_steps)
+
+        csv_path  = self.train_collision_csv if tag == 'train' else self.eval_collision_csv
+        init_flag = '_collision_csv_initialized' if tag == 'train' else '_eval_collision_csv_initialized'
+        fieldnames = ['total_num_steps'] + list(cr.keys())
+
+        with open(csv_path, 'a', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            if not getattr(self, init_flag):
+                writer.writeheader()
+                setattr(self, init_flag, True)
+            row = {'total_num_steps': total_num_steps, **cr}
             writer.writerow(row)
 
     @torch.no_grad()
@@ -270,3 +368,7 @@ class WiFiRunner(Runner):
         # eval throughput 측정 및 CSV 저장
         tp = self.eval_envs.get_throughput()
         self._log_throughput(tp, total_num_steps, tag='eval')
+
+        # eval 충돌률 측정 및 CSV 저장
+        cr = self.eval_envs.get_collision_rate()
+        self._log_collision_rate(cr, total_num_steps, tag='eval')
