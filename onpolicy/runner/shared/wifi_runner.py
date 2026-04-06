@@ -123,7 +123,7 @@ class WiFiRunner(Runner):
         self.buffer.obs[0]              = obs.copy()
         self.buffer.available_actions[0] = available_actions.copy()
 
-        # 모든 action 가능(sum=5) → need_decision=True → active
+        # 모든 action 가능(sum=7) → need_decision=True → active
         active_masks = (available_actions.sum(axis=-1, keepdims=True) > 1).astype(np.float32)
         self.buffer.active_masks[0] = active_masks
 
@@ -202,13 +202,17 @@ class WiFiRunner(Runner):
         if not self.use_centralized_V:
             share_obs = obs
 
+        # active_masks를 buffer.insert에 넘기면 step+1에 저장되어 1-step 오정렬 발생.
+        # 대신 현재 step(rewards와 같은 위치)에 직접 저장한다.
+        current_step = self.buffer.step
         self.buffer.insert(
             share_obs, obs,
             rnn_states, rnn_states_critic,
             actions, action_log_probs, values,
-            rewards, masks, bad_masks, active_masks,
+            rewards, masks, bad_masks, None,
             available_actions,
         )
+        self.buffer.active_masks[current_step] = active_masks
 
     # ──────────────────────────────────────────────────────────────────────────
     # 평가
@@ -253,17 +257,17 @@ class WiFiRunner(Runner):
         """action 분포(CW level 0~4 비율) 출력, wandb 로깅, CSV 저장.
         decided=True인 step의 action만 카운트.
         """
-        # actions[t]에 대응하는 decided 여부는 active_masks[t+1]에 저장됨
-        decided = self.buffer.active_masks[1:].flatten() > 0
+        # Bug3 수정 후: active_masks[t] = decided at step t → actions[t]와 직접 대응
+        decided = self.buffer.active_masks[:-1].flatten() > 0
         flat_actions = self.buffer.actions.flatten()[decided].astype(int)
 
         total = len(flat_actions) if len(flat_actions) > 0 else 1
-        dist = {f'action_dist/cw_level_{a}': (flat_actions == a).sum() / total for a in range(5)}
+        dist = {f'action_dist/cw_level_{a}': (flat_actions == a).sum() / total for a in range(7)}
 
-        cw_ranges = {0: '2~7', 1: '8~15', 2: '16~31', 3: '32~63', 4: '64~127'}
-        a_vals    = {0: 1.0, 1: 0.8, 2: 0.6, 3: 0.4, 4: 0.2}
+        cw_ranges = {0: '즉시', 1: '2~5', 2: '6~11', 3: '12~23', 4: '24~47', 5: '48~95', 6: '96~127'}
+        a_vals    = {0: 1.0, 1: 0.85, 2: 0.7, 3: 0.5, 4: 0.3, 5: 0.15, 6: 0.05}
         print("  [train] action distribution:")
-        for a in range(5):
+        for a in range(7):
             print(f"    CW level {a} (CW={cw_ranges[a]}, A={a_vals[a]}): {dist[f'action_dist/cw_level_{a}']:.4f}")
 
         if self.use_wandb:

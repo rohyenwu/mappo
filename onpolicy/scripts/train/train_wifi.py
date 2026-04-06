@@ -44,6 +44,7 @@ def make_env(all_args, seed_offset: int):
                 num_mld_a=all_args.num_mld_a,
                 num_mld_b=all_args.num_mld_b,
                 num_sld_per_link=all_args.num_sld,
+                use_ind_reward=all_args.use_ind_reward,
             )
             env.seed(seed_offset + rank * 1000)
             return env
@@ -83,6 +84,10 @@ def parse_args(args, parser):
     parser.add_argument(
         '--num_sld', type=int, default=2,
         help="링크당 SLD STA 수  (CSMA/CA)",
+    )
+    parser.add_argument(
+        '--use_ind_reward', action='store_true', default=False,
+        help="개인 보상(r_ind) 사용 여부. 미지정 시 전체 보상(r_global)만 사용.",
     )
     return parser.parse_known_args(args)[0]
 

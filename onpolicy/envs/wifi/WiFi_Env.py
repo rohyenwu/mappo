@@ -3,9 +3,17 @@ from gym import spaces
 
 # ── 채널 상수 ──────────────────────────────────────────────────────────────────
 DIFS = 2
-CW_TABLE = {0: (2, 8), 1: (8, 16), 2: (16, 32), 3: (32, 64), 4: (64, 128)}
+CW_TABLE = {
+    0: (0,  1),   # 즉시전송 (backoff=0)
+    1: (2,  6),   # 2~5
+    2: (6,  12),  # 6~11
+    3: (12, 24),  # 12~23
+    4: (24, 48),  # 24~47
+    5: (48, 96),  # 48~95
+    6: (96, 128), # 96~127
+}
 LINK_VALS = [2.4, 5.0, 6.0]
-A_TABLE = np.array([1.0, 0.8, 0.6, 0.4, 0.2], dtype=np.float32)  # index = action (0~4)
+A_TABLE = np.array([1.0, 0.85, 0.7, 0.5, 0.3, 0.15, 0.05], dtype=np.float32)  # index = action (0~6)
 
 CW_MIN = 16
 CW_MAX = 1024
@@ -53,23 +61,30 @@ class WiFiEnv:
     h         : 채널 품질 EMA [-1, 1]
     one_hot   : 링크 ID one-hot {2.4GHz, 5GHz, 6GHz}
 
-    Action  Discrete(5)
+    Action  Discrete(7)
     -------------------
-    0~4 = CW level  (0: 가장 공격적 A=1.0, 4: 가장 보수적 A=0.2)
+    0~6 = CW level  (0: 가장 공격적 A=1.0, 6: 가장 보수적 A=0.05)
 
-    Reward
-    ------
+    Reward  (use_ind_reward=True 일 때)
+    ------------------------------------
     A*(h)    = (h + 1) / 2
     r_ind    = −β × |A(action) − A*(h_prev)|
     r_global = {success:+1, collision:−1}
     r_total  = r_ind + α × r_global
+
+    Reward  (use_ind_reward=False 일 때)
+    -------------------------------------
+    r_global = {success:+1, collision:−1}
+    r_total  = α × r_global
     """
 
     def __init__(self, num_mld_a: int = 2, num_mld_b: int = 2,
-                 num_sld_per_link: int = 2):
-        self.num_mld_a = num_mld_a
-        self.num_mld_b = num_mld_b
-        self.num_sld   = num_sld_per_link
+                 num_sld_per_link: int = 2,
+                 use_ind_reward: bool = True):
+        self.num_mld_a     = num_mld_a
+        self.num_mld_b     = num_mld_b
+        self.num_sld       = num_sld_per_link
+        self.use_ind_reward = use_ind_reward
         self.num_links = 3
         self.total_mld = num_mld_a + num_mld_b
 
@@ -108,7 +123,7 @@ class WiFiEnv:
             )
         ] * self.num_agents
 
-        self.action_space = [spaces.Discrete(5)] * self.num_agents  # 0~4
+        self.action_space = [spaces.Discrete(7)] * self.num_agents  # 0~6
 
         self._init_state()
 
@@ -185,7 +200,7 @@ class WiFiEnv:
 
         Parameters
         ----------
-        actions : np.ndarray  shape (num_agents, 1)  정수 0~4
+        actions : np.ndarray  shape (num_agents, 1)  정수 0~6
             need_decision=True인 에이전트의 action만 반영.
 
         Returns
@@ -193,7 +208,7 @@ class WiFiEnv:
         obs, share_obs, rewards, dones, infos, available_actions
         """
         actions = actions.flatten().astype(int)
-        actions = np.clip(actions, 0, 4)
+        actions = np.clip(actions, 0, 6)
 
         # ── Phase 1: decision 에이전트 action 적용 ────────────────────────────
         decided = self.need_decision.copy()
@@ -331,10 +346,13 @@ class WiFiEnv:
                     self.mld_backoff[aid] = -1
 
                     # ── reward 계산 (이전 ao_h, ao_action 기준) ───────────────
-                    a_star   = (self.ao_h[aid] + 1.0) / 2.0
-                    r_ind    = float(-BETA * abs(A_TABLE[self.ao_action[aid]] - a_star))
                     r_global = 1.0 if result == "success" else -1.0
-                    rewards[aid, 0] = r_ind + ALPHA * r_global
+                    if self.use_ind_reward:
+                        a_star  = (self.ao_h[aid] + 1.0) / 2.0
+                        r_ind   = float(-BETA * abs(A_TABLE[self.ao_action[aid]] - a_star))
+                        rewards[aid, 0] = r_ind + ALPHA * r_global
+                    else:
+                        rewards[aid, 0] = ALPHA * r_global
 
                     was_tx_agents.append(aid)
                 # was_tx=False: backoff freeze
@@ -462,7 +480,7 @@ class WiFiEnv:
         need_decision=True : 모든 action(0~4, 즉 CW 1~5) 가능
         need_decision=False: action 0만 (softmax NaN 방지용, 실제로는 무시됨)
         """
-        avail = np.zeros((self.num_agents, 5), dtype=np.float32)
+        avail = np.zeros((self.num_agents, 7), dtype=np.float32)
         for aid in range(self.num_agents):
             if self.need_decision[aid]:
                 avail[aid] = 1.0
