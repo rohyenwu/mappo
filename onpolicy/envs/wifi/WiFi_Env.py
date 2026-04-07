@@ -24,6 +24,11 @@ LAMBDA = 0.2   # h EMA 감쇠율
 BETA   = 0.1   # r_ind 스케일
 ALPHA  = 1.0   # r_global 스케일
 
+# ── 목표 공격성 sigmoid 스케일 ────────────────────────────────────────────────
+W_SCALE = 0.005  # W cap 200 → 기여 0~1.0
+H_SCALE = 1.0    # h 범위 -1~1 → 기여 -1~1
+R_SCALE = 0.8    # retry cap 6 → 기여 0~4.8
+
 # ── throughput 파라미터 ────────────────────────────────────────────────────────
 PKT_PER_SUCCESS = [1, 2, 3]  # 링크별 성공당 패킷 수 (2.4GHz, 5GHz, 6GHz)
 
@@ -67,15 +72,15 @@ class WiFiEnv:
 
     Reward  (use_ind_reward=True 일 때)
     ------------------------------------
-    A*(h)    = (h + 1) / 2
-    r_ind    = −β × |A(action) − A*(h_prev)|
-    r_global = {success:+1, collision:−1}
-    r_total  = r_ind + α × r_global
+    A*(W,h,retry) = sigmoid(w_scale*W + h_scale*h - r_scale*retry)
+    e = (A(action) − A*)²
+    success : r = +(1 − e)    →  [0, +1]
+    collision: r = −e          →  [−1, 0]
 
     Reward  (use_ind_reward=False 일 때)
     -------------------------------------
-    r_global = {success:+1, collision:−1}
-    r_total  = α × r_global
+    success : r = +1
+    collision: r = −1
     """
 
     def __init__(self, num_mld_a: int = 2, num_mld_b: int = 2,
@@ -108,7 +113,7 @@ class WiFiEnv:
         # ── Gym 공간 정의 ──────────────────────────────────────────────────────
         # obs: [W, h, retry, one_hot_link(3)] = 6 dim
         obs_low  = np.array([0.0, -1.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
-        obs_high = np.array([np.inf, 1.0, np.inf, 1.0, 1.0, 1.0], dtype=np.float32)
+        obs_high = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32)
 
         self.observation_space = [
             spaces.Box(obs_low, obs_high, dtype=np.float32)
@@ -151,9 +156,9 @@ class WiFiEnv:
 
         Returns
         -------
-        obs              : (num_agents, 5)
-        share_obs        : (num_agents, num_agents*5)
-        available_actions: (num_agents, 5)
+        obs              : (num_agents, 6)
+        share_obs        : (num_agents, max_link_agents*6)
+        available_actions: (num_agents, 6)
         """
         if warmup_decisions is None:
             warmup_decisions = self.num_agents
@@ -270,6 +275,8 @@ class WiFiEnv:
 
         # 새 action 선택 직전 저장값 (delayed reward 계산용)
         self.ao_h      = np.zeros(self.num_agents, dtype=np.float32)
+        self.ao_w      = np.zeros(self.num_agents, dtype=np.float32)
+        self.ao_retry  = np.zeros(self.num_agents, dtype=np.int32)
         self.ao_action = np.ones(self.num_agents, dtype=np.int32) * 2  # 초기 기본값
 
         # 연속 충돌 횟수 (성공 시 0 리셋)
@@ -350,14 +357,21 @@ class WiFiEnv:
                         self.retry[aid] += 1
                     self.mld_backoff[aid] = -1
 
-                    # ── reward 계산 (이전 ao_h, ao_action 기준) ───────────────
-                    r_global = 1.0 if result == "success" else -1.0
+                    # ── reward 계산 (이전 ao 상태 기준) ───────────────────────
                     if self.use_ind_reward:
-                        a_star  = (self.ao_h[aid] + 1.0) / 2.0
-                        r_ind   = float(-BETA * abs(A_TABLE[self.ao_action[aid]] - a_star))
-                        rewards[aid, 0] = r_ind + ALPHA * r_global
+                        w_clip = min(self.ao_w[aid], 200.0)
+                        retry_clip = min(self.ao_retry[aid], 6)
+                        sig_input = (W_SCALE * w_clip
+                                     + H_SCALE * self.ao_h[aid]
+                                     - R_SCALE * retry_clip)
+                        a_star = 1.0 / (1.0 + np.exp(-sig_input))
+                        e = (float(A_TABLE[self.ao_action[aid]]) - a_star) ** 2
+                        if result == "success":
+                            rewards[aid, 0] = 1.0 - e
+                        else:
+                            rewards[aid, 0] = -e
                     else:
-                        rewards[aid, 0] = ALPHA * r_global
+                        rewards[aid, 0] = 1.0 if result == "success" else -1.0
 
                     was_tx_agents.append(aid)
                 # was_tx=False: backoff freeze
@@ -365,15 +379,18 @@ class WiFiEnv:
                 # idle
                 if self.difs[aid] < DIFS:
                     self.difs[aid] += 1
-                elif self.mld_backoff[aid] > 0:
+                if self.difs[aid] >= DIFS and self.mld_backoff[aid] > 0:
                     self.mld_backoff[aid] -= 1
 
         self.h = new_h
 
-        # ── was_tx 에이전트: ao_h 저장 ───────────────────────────────────────
+        # ── was_tx 에이전트: ao 상태 저장 (새 action 선택 직전) ────────────
         if was_tx_agents:
+            w = self._compute_w()
             for aid in was_tx_agents:
-                self.ao_h[aid] = self.h[aid]   # 새 action 선택 직전 h (방금 결과)
+                self.ao_h[aid] = self.h[aid]
+                self.ao_w[aid] = w[aid]
+                self.ao_retry[aid] = self.retry[aid]
                 self.need_decision[aid] = True
 
         # ── SLD 상태 업데이트 ─────────────────────────────────────────────────
@@ -505,7 +522,9 @@ class WiFiEnv:
         for aid, (_, link) in enumerate(self.agent_sta_link):
             one_hot = np.zeros(3, dtype=np.float32)
             one_hot[link] = 1.0
-            obs[aid] = [w[aid], self.h[aid], float(self.retry[aid]), *one_hot]
+            w_norm = min(w[aid], 200.0) / 200.0
+            r_norm = min(float(self.retry[aid]), float(RETRY_LIMIT)) / float(RETRY_LIMIT)
+            obs[aid] = [w_norm, self.h[aid], r_norm, *one_hot]
 
         # share_obs: 같은 링크 에이전트 obs만 (max_link_agents × 6, 나머지 0 패딩)
         share_obs = np.zeros((self.num_agents, self.max_link_agents * 6), dtype=np.float32)
