@@ -43,6 +43,9 @@ class WiFiRunner(Runner):
         self.train_action_dist_csv = os.path.join(str(self.log_dir), 'train_action_dist.csv')
         self._action_dist_csv_initialized = False
 
+        # e값 수집용 버퍼
+        self._episode_e_values = []
+
     # ──────────────────────────────────────────────────────────────────────────
     # 메인 학습 루프
     # ──────────────────────────────────────────────────────────────────────────
@@ -91,7 +94,38 @@ class WiFiRunner(Runner):
                     f"FPS {int(total_num_steps / (end - start))}"
                 )
                 train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
+
+                # deciding 에이전트만의 평균 reward
+                active = self.buffer.active_masks[:-1]  # (episode_length, n_threads, n_agents, 1)
+                rewards = self.buffer.rewards             # (episode_length, n_threads, n_agents, 1)
+                decided_mask = active.flatten() > 0
+                if decided_mask.any():
+                    decided_rewards = rewards.flatten()[decided_mask]
+                    avg_decided = float(np.mean(decided_rewards))
+                    avg_decided_pos = float(np.mean(decided_rewards[decided_rewards > 0])) if (decided_rewards > 0).any() else 0.0
+                    avg_decided_neg = float(np.mean(decided_rewards[decided_rewards < 0])) if (decided_rewards < 0).any() else 0.0
+                    success_ratio = float((decided_rewards > 0).sum()) / float(len(decided_rewards))
+                else:
+                    avg_decided = avg_decided_pos = avg_decided_neg = success_ratio = 0.0
+
+                train_infos["decided_avg_reward"] = avg_decided
+                train_infos["decided_avg_reward_success"] = avg_decided_pos
+                train_infos["decided_avg_reward_collision"] = avg_decided_neg
+                train_infos["decided_success_ratio"] = success_ratio
+
+                # 평균 e (A*와의 괴리)
+                if self._episode_e_values:
+                    avg_e = float(np.mean(self._episode_e_values))
+                else:
+                    avg_e = 0.0
+                train_infos["decided_avg_e"] = avg_e
+                self._episode_e_values = []  # 다음 에피소드를 위해 초기화
+
                 print(f"  average step reward: {train_infos['average_step_rewards']:.4f}")
+                print(f"  decided avg reward:  {avg_decided:.4f}  "
+                      f"(success: {avg_decided_pos:.4f}, collision: {avg_decided_neg:.4f}, "
+                      f"success_ratio: {success_ratio:.4f})")
+                print(f"  decided avg e:       {avg_e:.4f}")
                 self.log_train(train_infos, total_num_steps)
 
                 # throughput 측정 및 CSV 저장
@@ -196,6 +230,12 @@ class WiFiRunner(Runner):
              for info in infos],
             dtype=np.float32,
         )  # shape: (n_rollout_threads, num_agents, 1)
+
+        # e값 수집 (deciding 에이전트만)
+        for info in infos:
+            for aid in range(self.num_agents):
+                if info[aid]['decided']:
+                    self._episode_e_values.append(info[aid]['e'])
 
         bad_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
 

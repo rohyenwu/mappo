@@ -232,6 +232,7 @@ class WiFiEnv:
 
         # ── Phase 2: 다음 결과 발생까지 내부 슬롯 진행 ────────────────────────
         rewards = np.zeros((self.num_agents, 1), dtype=np.float32)
+        self._last_e = np.zeros(self.num_agents, dtype=np.float32)
 
         while not np.any(self.need_decision):
             self._advance_one_slot(rewards)
@@ -242,7 +243,8 @@ class WiFiEnv:
         infos = [
             {
                 'bad_transition': False,
-                'decided': bool(decided[aid]),  # 이번 step에서 decision했는지
+                'decided': bool(decided[aid]),
+                'e': float(self._last_e[aid]),
             }
             for aid in range(self.num_agents)
         ]
@@ -369,6 +371,7 @@ class WiFiEnv:
                             sig_input += W_SCALE * w_clip
                         a_star = 1.0 / (1.0 + np.exp(-sig_input))
                         e = (float(A_TABLE[self.ao_action[aid]]) - a_star) ** 2
+                        self._last_e[aid] = e
                         if result == "success":
                             rewards[aid, 0] = 1.0 - e
                         else:
