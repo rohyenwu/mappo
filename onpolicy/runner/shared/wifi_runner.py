@@ -254,7 +254,7 @@ class WiFiRunner(Runner):
             writer.writerow(row)
 
     def _log_action_dist(self, total_num_steps: int):
-        """action 분포(CW level 0~4 비율) 출력, wandb 로깅, CSV 저장.
+        """action 분포(CW level 0~5 비율) 출력, wandb 로깅, CSV 저장.
         decided=True인 step의 action만 카운트.
         """
         # Bug3 수정 후: active_masks[t] = decided at step t → actions[t]와 직접 대응
@@ -262,12 +262,12 @@ class WiFiRunner(Runner):
         flat_actions = self.buffer.actions.flatten()[decided].astype(int)
 
         total = len(flat_actions) if len(flat_actions) > 0 else 1
-        dist = {f'action_dist/cw_level_{a}': (flat_actions == a).sum() / total for a in range(7)}
+        dist = {f'action_dist/cw_level_{a}': (flat_actions == a).sum() / total for a in range(6)}
 
-        cw_ranges = {0: '즉시', 1: '2~5', 2: '6~11', 3: '12~23', 4: '24~47', 5: '48~95', 6: '96~127'}
-        a_vals    = {0: 1.0, 1: 0.85, 2: 0.7, 3: 0.5, 4: 0.3, 5: 0.15, 6: 0.05}
+        cw_ranges = {0: '2~5', 1: '6~11', 2: '12~23', 3: '24~47', 4: '48~95', 5: '96~127'}
+        a_vals    = {0: 0.85, 1: 0.7, 2: 0.5, 3: 0.3, 4: 0.15, 5: 0.05}
         print("  [train] action distribution:")
-        for a in range(7):
+        for a in range(6):
             print(f"    CW level {a} (CW={cw_ranges[a]}, A={a_vals[a]}): {dist[f'action_dist/cw_level_{a}']:.4f}")
 
         if self.use_wandb:

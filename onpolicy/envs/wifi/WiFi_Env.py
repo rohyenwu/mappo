@@ -4,16 +4,15 @@ from gym import spaces
 # ── 채널 상수 ──────────────────────────────────────────────────────────────────
 DIFS = 2
 CW_TABLE = {
-    0: (0,  1),   # 즉시전송 (backoff=0)
-    1: (2,  6),   # 2~5
-    2: (6,  12),  # 6~11
-    3: (12, 24),  # 12~23
-    4: (24, 48),  # 24~47
-    5: (48, 96),  # 48~95
-    6: (96, 128), # 96~127
+    0: (2,  6),   # 2~5
+    1: (6,  12),  # 6~11
+    2: (12, 24),  # 12~23
+    3: (24, 48),  # 24~47
+    4: (48, 96),  # 48~95
+    5: (96, 128), # 96~127
 }
 LINK_VALS = [2.4, 5.0, 6.0]
-A_TABLE = np.array([1.0, 0.85, 0.7, 0.5, 0.3, 0.15, 0.05], dtype=np.float32)  # index = action (0~6)
+A_TABLE = np.array([0.85, 0.7, 0.5, 0.3, 0.15, 0.05], dtype=np.float32)  # index = action (0~5)
 
 CW_MIN = 16
 CW_MAX = 1024
@@ -22,7 +21,7 @@ W_MAX = 1000   # W clip 상한 (한 번도 성공 못 한 경우 포함)
 
 # ── 학습 하이퍼파라미터 ────────────────────────────────────────────────────────
 LAMBDA = 0.2   # h EMA 감쇠율
-BETA   = 1.0   # r_ind 스케일
+BETA   = 0.1   # r_ind 스케일
 ALPHA  = 1.0   # r_global 스케일
 
 # ── throughput 파라미터 ────────────────────────────────────────────────────────
@@ -54,16 +53,17 @@ class WiFiEnv:
     r  = 다음 결과 발생 시 계산 (ao_h, ao_action 사용)
     s' = 다음 결과 발생 직후 상태
 
-    State  (5 dim)
+    State  (6 dim)
     --------------
-    [W, h, one_hot_link(3)]
+    [W, h, retry, one_hot_link(3)]
     W         : 마지막 성공 이후 경과 슬롯 수 (raw, feature_norm으로 처리)
     h         : 채널 품질 EMA [-1, 1]
+    retry     : 연속 충돌 횟수 (성공 시 0 리셋)
     one_hot   : 링크 ID one-hot {2.4GHz, 5GHz, 6GHz}
 
-    Action  Discrete(7)
+    Action  Discrete(6)
     -------------------
-    0~6 = CW level  (0: 가장 공격적 A=1.0, 6: 가장 보수적 A=0.05)
+    0~5 = CW level  (0: 가장 공격적 A=0.85, 5: 가장 보수적 A=0.05)
 
     Reward  (use_ind_reward=True 일 때)
     ------------------------------------
@@ -106,15 +106,15 @@ class WiFiEnv:
         self.max_link_agents = max(len(aids) for aids in self.link_agents.values())
 
         # ── Gym 공간 정의 ──────────────────────────────────────────────────────
-        # obs: [W, h, one_hot_link(3)] = 5 dim
-        obs_low  = np.array([0.0, -1.0, 0.0, 0.0, 0.0], dtype=np.float32)
-        obs_high = np.array([np.inf, 1.0, 1.0, 1.0, 1.0], dtype=np.float32)
+        # obs: [W, h, retry, one_hot_link(3)] = 6 dim
+        obs_low  = np.array([0.0, -1.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
+        obs_high = np.array([np.inf, 1.0, np.inf, 1.0, 1.0, 1.0], dtype=np.float32)
 
         self.observation_space = [
             spaces.Box(obs_low, obs_high, dtype=np.float32)
         ] * self.num_agents
 
-        # share_obs: 같은 링크 에이전트만 (max_link_agents × 5, 패딩 포함)
+        # share_obs: 같은 링크 에이전트만 (max_link_agents × 6, 패딩 포함)
         self.share_observation_space = [
             spaces.Box(
                 low=np.tile(obs_low, self.max_link_agents),
@@ -123,7 +123,7 @@ class WiFiEnv:
             )
         ] * self.num_agents
 
-        self.action_space = [spaces.Discrete(7)] * self.num_agents  # 0~6
+        self.action_space = [spaces.Discrete(6)] * self.num_agents  # 0~5
 
         self._init_state()
 
@@ -200,7 +200,7 @@ class WiFiEnv:
 
         Parameters
         ----------
-        actions : np.ndarray  shape (num_agents, 1)  정수 0~6
+        actions : np.ndarray  shape (num_agents, 1)  정수 0~5
             need_decision=True인 에이전트의 action만 반영.
 
         Returns
@@ -208,7 +208,7 @@ class WiFiEnv:
         obs, share_obs, rewards, dones, infos, available_actions
         """
         actions = actions.flatten().astype(int)
-        actions = np.clip(actions, 0, 6)
+        actions = np.clip(actions, 0, 5)
 
         # ── Phase 1: decision 에이전트 action 적용 ────────────────────────────
         decided = self.need_decision.copy()
@@ -271,6 +271,9 @@ class WiFiEnv:
         # 새 action 선택 직전 저장값 (delayed reward 계산용)
         self.ao_h      = np.zeros(self.num_agents, dtype=np.float32)
         self.ao_action = np.ones(self.num_agents, dtype=np.int32) * 2  # 초기 기본값
+
+        # 연속 충돌 횟수 (성공 시 0 리셋)
+        self.retry = np.zeros(self.num_agents, dtype=np.int32)
 
         # throughput 카운터 (링크별)
         self.mld_success_count   = np.zeros(self.num_links, dtype=np.int64)
@@ -341,8 +344,10 @@ class WiFiEnv:
                     if result == "success":
                         self.last_success[sta, link] = self.t
                         self.mld_success_count[link] += 1
+                        self.retry[aid] = 0
                     else:
                         self.mld_collision_count[link] += 1
+                        self.retry[aid] += 1
                     self.mld_backoff[aid] = -1
 
                     # ── reward 계산 (이전 ao_h, ao_action 기준) ───────────────
@@ -477,10 +482,10 @@ class WiFiEnv:
 
     def _make_available_actions(self) -> np.ndarray:
         """
-        need_decision=True : 모든 action(0~4, 즉 CW 1~5) 가능
+        need_decision=True : 모든 action(0~5) 가능
         need_decision=False: action 0만 (softmax NaN 방지용, 실제로는 무시됨)
         """
-        avail = np.zeros((self.num_agents, 7), dtype=np.float32)
+        avail = np.zeros((self.num_agents, 6), dtype=np.float32)
         for aid in range(self.num_agents):
             if self.need_decision[aid]:
                 avail[aid] = 1.0
@@ -496,16 +501,16 @@ class WiFiEnv:
 
     def _build_obs(self):
         w   = self._compute_w()
-        obs = np.zeros((self.num_agents, 5), dtype=np.float32)
+        obs = np.zeros((self.num_agents, 6), dtype=np.float32)
         for aid, (_, link) in enumerate(self.agent_sta_link):
             one_hot = np.zeros(3, dtype=np.float32)
             one_hot[link] = 1.0
-            obs[aid] = [w[aid], self.h[aid], *one_hot]
+            obs[aid] = [w[aid], self.h[aid], float(self.retry[aid]), *one_hot]
 
-        # share_obs: 같은 링크 에이전트 obs만 (max_link_agents × 5, 나머지 0 패딩)
-        share_obs = np.zeros((self.num_agents, self.max_link_agents * 5), dtype=np.float32)
+        # share_obs: 같은 링크 에이전트 obs만 (max_link_agents × 6, 나머지 0 패딩)
+        share_obs = np.zeros((self.num_agents, self.max_link_agents * 6), dtype=np.float32)
         for aid, (_, link) in enumerate(self.agent_sta_link):
             for i, la in enumerate(self.link_agents[link]):
-                share_obs[aid, i*5:(i+1)*5] = obs[la]
+                share_obs[aid, i*6:(i+1)*6] = obs[la]
 
         return obs, share_obs
