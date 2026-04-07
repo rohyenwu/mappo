@@ -197,6 +197,8 @@ class WiFiEnv:
         self.mld_collision_count[:] = 0
         self.sld_collision_count[:] = 0
         self.t_train_start = self.t
+        self.pending_reward = np.zeros(self.num_agents, dtype=np.float32)
+        self.pending_e = np.zeros(self.num_agents, dtype=np.float32)
 
         obs, share_obs = self._build_obs()
         return obs, share_obs, self._make_available_actions()
@@ -217,9 +219,19 @@ class WiFiEnv:
         actions = actions.flatten().astype(int)
         actions = np.clip(actions, 0, 5)
 
-        # ── Phase 1: decision 에이전트 action 적용 ────────────────────────────
+        # ── Phase 0: decided 에이전트의 pending reward 수거 ───────────────────
         decided = self.need_decision.copy()
+        rewards = np.zeros((self.num_agents, 1), dtype=np.float32)
+        self._last_e = np.zeros(self.num_agents, dtype=np.float32)
 
+        for aid in range(self.num_agents):
+            if decided[aid]:
+                rewards[aid, 0] = self.pending_reward[aid]
+                self._last_e[aid] = self.pending_e[aid]
+                self.pending_reward[aid] = 0.0
+                self.pending_e[aid] = 0.0
+
+        # ── Phase 1: decision 에이전트 action 적용 ────────────────────────────
         for aid in range(self.num_agents):
             if not self.need_decision[aid]:
                 continue
@@ -231,11 +243,11 @@ class WiFiEnv:
         self.need_decision[:] = False
 
         # ── Phase 2: 다음 결과 발생까지 내부 슬롯 진행 ────────────────────────
-        rewards = np.zeros((self.num_agents, 1), dtype=np.float32)
-        self._last_e = np.zeros(self.num_agents, dtype=np.float32)
+        #    결과 발생 시 reward는 pending에 저장 (다음 decision step에서 수거)
+        dummy_rewards = np.zeros((self.num_agents, 1), dtype=np.float32)
 
         while not np.any(self.need_decision):
-            self._advance_one_slot(rewards)
+            self._advance_one_slot(dummy_rewards)
             self.t += 1
 
         obs, share_obs = self._build_obs()
@@ -265,6 +277,8 @@ class WiFiEnv:
         self.t = 0
         self.t_train_start = 0
         self._last_e = None  # step()에서 초기화
+        self.pending_reward = np.zeros(0)  # reset() 후 크기 설정
+        self.pending_e = np.zeros(0)
 
         self.last_success = np.full(
             (self.total_mld, self.num_links), -W_MAX, dtype=np.float64
@@ -362,7 +376,7 @@ class WiFiEnv:
                         self.retry[aid] += 1
                     self.mld_backoff[aid] = -1
 
-                    # ── reward 계산 (이전 ao 상태 기준) ───────────────────────
+                    # ── reward 계산 → pending에 저장 (다음 decision에서 수거)
                     if self.use_ind_reward:
                         retry_clip = min(self.ao_retry[aid], 6)
                         sig_input = (H_SCALE * self.ao_h[aid]
@@ -372,14 +386,13 @@ class WiFiEnv:
                             sig_input += W_SCALE * w_clip
                         a_star = 1.0 / (1.0 + np.exp(-sig_input))
                         e = (float(A_TABLE[self.ao_action[aid]]) - a_star) ** 2
-                        if self._last_e is not None:
-                            self._last_e[aid] = e
+                        self.pending_e[aid] = e
                         if result == "success":
-                            rewards[aid, 0] = 1.0 - e
+                            self.pending_reward[aid] = 1.0 - e
                         else:
-                            rewards[aid, 0] = -e
+                            self.pending_reward[aid] = -e
                     else:
-                        rewards[aid, 0] = 1.0 if result == "success" else -1.0
+                        self.pending_reward[aid] = 1.0 if result == "success" else -1.0
 
                     was_tx_agents.append(aid)
                 # was_tx=False: backoff freeze
