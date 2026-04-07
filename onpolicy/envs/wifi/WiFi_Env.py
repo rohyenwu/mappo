@@ -264,6 +264,7 @@ class WiFiEnv:
     def _init_state(self):
         self.t = 0
         self.t_train_start = 0
+        self._last_e = None  # step()에서 초기화
 
         self.last_success = np.full(
             (self.total_mld, self.num_links), -W_MAX, dtype=np.float64
@@ -371,7 +372,8 @@ class WiFiEnv:
                             sig_input += W_SCALE * w_clip
                         a_star = 1.0 / (1.0 + np.exp(-sig_input))
                         e = (float(A_TABLE[self.ao_action[aid]]) - a_star) ** 2
-                        self._last_e[aid] = e
+                        if self._last_e is not None:
+                            self._last_e[aid] = e
                         if result == "success":
                             rewards[aid, 0] = 1.0 - e
                         else:
