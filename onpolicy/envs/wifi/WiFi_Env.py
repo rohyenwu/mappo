@@ -221,12 +221,12 @@ class WiFiEnv:
 
         # ── Phase 0: decided 에이전트의 pending reward 수거 ───────────────────
         decided = self.need_decision.copy()
-        rewards = np.zeros((self.num_agents, 1), dtype=np.float32)
+        pending_rewards = np.zeros((self.num_agents, 1), dtype=np.float32)
         self._last_e = np.zeros(self.num_agents, dtype=np.float32)
 
         for aid in range(self.num_agents):
             if decided[aid]:
-                rewards[aid, 0] = self.pending_reward[aid]
+                pending_rewards[aid, 0] = self.pending_reward[aid]
                 self._last_e[aid] = self.pending_e[aid]
                 self.pending_reward[aid] = 0.0
                 self.pending_e[aid] = 0.0
@@ -243,7 +243,6 @@ class WiFiEnv:
         self.need_decision[:] = False
 
         # ── Phase 2: 다음 결과 발생까지 내부 슬롯 진행 ────────────────────────
-        #    결과 발생 시 reward는 pending에 저장 (다음 decision step에서 수거)
         dummy_rewards = np.zeros((self.num_agents, 1), dtype=np.float32)
 
         while not np.any(self.need_decision):
@@ -257,10 +256,13 @@ class WiFiEnv:
                 'bad_transition': False,
                 'decided': bool(decided[aid]),
                 'e': float(self._last_e[aid]),
+                'pending_reward': float(pending_rewards[aid, 0]),
             }
             for aid in range(self.num_agents)
         ]
 
+        # rewards는 0으로 반환 (runner가 소급 처리)
+        rewards = np.zeros((self.num_agents, 1), dtype=np.float32)
         return obs, share_obs, rewards, dones, infos, self._make_available_actions()
 
     def close(self):
@@ -277,8 +279,8 @@ class WiFiEnv:
         self.t = 0
         self.t_train_start = 0
         self._last_e = None  # step()에서 초기화
-        self.pending_reward = np.zeros(0)  # reset() 후 크기 설정
-        self.pending_e = np.zeros(0)
+        self.pending_reward = np.zeros(self.num_agents, dtype=np.float32)
+        self.pending_e = np.zeros(self.num_agents, dtype=np.float32)
 
         self.last_success = np.full(
             (self.total_mld, self.num_links), -W_MAX, dtype=np.float64

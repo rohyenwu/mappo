@@ -46,6 +46,10 @@ class WiFiRunner(Runner):
         # e값 수집용 버퍼
         self._episode_e_values = []
 
+        # 소급 보상: 각 에이전트의 마지막 decision buffer step 추적
+        # key: (thread_idx, agent_idx), value: buffer step index
+        self._last_decision_step = {}
+
     # ──────────────────────────────────────────────────────────────────────────
     # 메인 학습 루프
     # ──────────────────────────────────────────────────────────────────────────
@@ -65,6 +69,8 @@ class WiFiRunner(Runner):
                 self.trainer.entropy_decay(episode, episodes)
 
             # ── 에피소드 롤아웃 수집 ─────────────────────────────────────────
+            self._last_decision_step.clear()  # 새 에피소드마다 초기화
+
             for step in range(self.episode_length):
                 values, actions, action_log_probs, rnn_states, rnn_states_critic = \
                     self.collect(step)
@@ -76,6 +82,10 @@ class WiFiRunner(Runner):
                         values, actions, action_log_probs,
                         rnn_states, rnn_states_critic)
                 self.insert(data)
+
+            # 에피소드 끝: 아직 reward가 배치되지 않은 마지막 action에
+            # 현재 env의 pending_reward를 소급 배치
+            self._flush_pending_rewards()
 
             # ── GAE 계산 + PPO 업데이트 ──────────────────────────────────────
             self.compute()
@@ -237,7 +247,7 @@ class WiFiRunner(Runner):
         )  # shape: (n_rollout_threads, num_agents, 1)
 
         # e값 수집 (deciding 에이전트만)
-        for info in infos:
+        for t_idx, info in enumerate(infos):
             for aid in range(self.num_agents):
                 if info[aid]['decided']:
                     self._episode_e_values.append(info[aid]['e'])
@@ -247,9 +257,25 @@ class WiFiRunner(Runner):
         if not self.use_centralized_V:
             share_obs = obs
 
-        # active_masks를 buffer.insert에 넘기면 step+1에 저장되어 1-step 오정렬 발생.
-        # 대신 현재 step(rewards와 같은 위치)에 직접 저장한다.
+        # ── 소급 보상 배치 ────────────────────────────────────────────────────
+        # 현재 step에서 decided=True인 에이전트는 이전 action의 결과(pending_reward)를
+        # 갖고 있다. 이 reward를 이전 action이 저장된 buffer step에 소급 배치한다.
         current_step = self.buffer.step
+
+        for t_idx, info in enumerate(infos):
+            for aid in range(self.num_agents):
+                if info[aid]['decided']:
+                    pending_r = info[aid]['pending_reward']
+                    key = (t_idx, aid)
+
+                    # 이전 decision step이 있으면 그곳에 reward 소급 배치
+                    if key in self._last_decision_step:
+                        prev_step = self._last_decision_step[key]
+                        self.buffer.rewards[prev_step, t_idx, aid, 0] = pending_r
+
+                    # 현재 step을 새 decision step으로 기록
+                    self._last_decision_step[key] = current_step
+
         self.buffer.insert(
             share_obs, obs,
             rnn_states, rnn_states_critic,
@@ -258,6 +284,18 @@ class WiFiRunner(Runner):
             available_actions,
         )
         self.buffer.active_masks[current_step] = active_masks
+
+    def _flush_pending_rewards(self):
+        """에피소드 끝에서 아직 소급 배치되지 않은 마지막 action의 reward를 처리.
+
+        env 내부의 pending_reward (이전 action의 결과로 아직 수거 안 된 것)를
+        마지막 decision step에 배치한다.
+        """
+        for (t_idx, aid), prev_step in self._last_decision_step.items():
+            env = self.envs.envs[t_idx]
+            pending_r = env.pending_reward[aid]
+            if pending_r != 0.0:
+                self.buffer.rewards[prev_step, t_idx, aid, 0] = pending_r
 
     # ──────────────────────────────────────────────────────────────────────────
     # 평가
