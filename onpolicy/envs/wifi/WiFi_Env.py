@@ -85,11 +85,13 @@ class WiFiEnv:
 
     def __init__(self, num_mld_a: int = 2, num_mld_b: int = 2,
                  num_sld_per_link: int = 2,
-                 use_ind_reward: bool = True):
+                 use_ind_reward: bool = True,
+                 use_w_in_astar: bool = True):
         self.num_mld_a     = num_mld_a
         self.num_mld_b     = num_mld_b
         self.num_sld       = num_sld_per_link
         self.use_ind_reward = use_ind_reward
+        self.use_w_in_astar = use_w_in_astar
         self.num_links = 3
         self.total_mld = num_mld_a + num_mld_b
 
@@ -359,11 +361,12 @@ class WiFiEnv:
 
                     # ── reward 계산 (이전 ao 상태 기준) ───────────────────────
                     if self.use_ind_reward:
-                        w_clip = min(self.ao_w[aid], 200.0)
                         retry_clip = min(self.ao_retry[aid], 6)
-                        sig_input = (W_SCALE * w_clip
-                                     + H_SCALE * self.ao_h[aid]
+                        sig_input = (H_SCALE * self.ao_h[aid]
                                      - R_SCALE * retry_clip)
+                        if self.use_w_in_astar:
+                            w_clip = min(self.ao_w[aid], 200.0)
+                            sig_input += W_SCALE * w_clip
                         a_star = 1.0 / (1.0 + np.exp(-sig_input))
                         e = (float(A_TABLE[self.ao_action[aid]]) - a_star) ** 2
                         if result == "success":
