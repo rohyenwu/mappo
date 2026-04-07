@@ -27,6 +27,8 @@ class R_MAPPO():
         self.data_chunk_length = args.data_chunk_length
         self.value_loss_coef = args.value_loss_coef
         self.entropy_coef = args.entropy_coef
+        self.entropy_coef_min = getattr(args, 'entropy_coef_min', args.entropy_coef)
+        self.entropy_coef_init = args.entropy_coef
         self.max_grad_norm = args.max_grad_norm       
         self.huber_delta = args.huber_delta
 
@@ -217,6 +219,11 @@ class R_MAPPO():
             train_info[k] /= num_updates
  
         return train_info
+
+    def entropy_decay(self, episode, episodes):
+        """Linear decay: entropy_coef_init → entropy_coef_min over training."""
+        frac = 1.0 - episode / float(episodes)
+        self.entropy_coef = self.entropy_coef_min + frac * (self.entropy_coef_init - self.entropy_coef_min)
 
     def prep_training(self):
         self.policy.actor.train()

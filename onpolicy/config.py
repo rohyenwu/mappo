@@ -240,6 +240,8 @@ def get_config():
                         help='number of batches for ppo (default: 1)')
     parser.add_argument("--entropy_coef", type=float, default=0.01,
                         help='entropy term coefficient (default: 0.01)')
+    parser.add_argument("--entropy_coef_min", type=float, default=None,
+                        help='minimum entropy coef for linear decay. If set, entropy decays from entropy_coef to this value.')
     parser.add_argument("--value_loss_coef", type=float,
                         default=1, help='value loss coefficient (default: 0.5)')
     parser.add_argument("--use_max_grad_norm",

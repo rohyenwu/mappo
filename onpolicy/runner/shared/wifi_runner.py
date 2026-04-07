@@ -61,6 +61,9 @@ class WiFiRunner(Runner):
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
 
+            if self.all_args.entropy_coef_min is not None:
+                self.trainer.entropy_decay(episode, episodes)
+
             # ── 에피소드 롤아웃 수집 ─────────────────────────────────────────
             for step in range(self.episode_length):
                 values, actions, action_log_probs, rnn_states, rnn_states_critic = \
@@ -126,6 +129,8 @@ class WiFiRunner(Runner):
                       f"(success: {avg_decided_pos:.4f}, collision: {avg_decided_neg:.4f}, "
                       f"success_ratio: {success_ratio:.4f})")
                 print(f"  decided avg e:       {avg_e:.4f}")
+                print(f"  entropy_coef:        {self.trainer.entropy_coef:.4f}")
+                train_infos["entropy_coef"] = self.trainer.entropy_coef
                 self.log_train(train_infos, total_num_steps)
 
                 # throughput 측정 및 CSV 저장
