@@ -227,7 +227,7 @@ class WiFiEnv:
             avg = np.mean(link_w)
             std = max(np.std(link_w), 1e-6)
             z = (w[aid] - avg) / std
-            self.ao_priority[aid] = 1.0 / (1.0 + np.exp(-z))
+            self.ao_priority[aid] = 1.0 / (1.0 + np.exp(-3.0 * z))
 
         self.need_decision[:] = False
 
@@ -240,15 +240,18 @@ class WiFiEnv:
 
         obs, share_obs = self._build_obs()
         dones = np.zeros(self.num_agents, dtype=bool)
-        infos = [
-            {
+        infos = []
+        for aid in range(self.num_agents):
+            info = {
                 'bad_transition': False,
                 'decided': bool(decided[aid]),
                 'priority': float(self.ao_priority[aid]),
                 'pending_reward': float(pending_rewards[aid, 0]),
             }
-            for aid in range(self.num_agents)
-        ]
+            if decided[aid]:
+                info['result_type'] = str(self.pending_result_type[aid])
+                info['result_priority'] = float(self.pending_result_priority[aid])
+            infos.append(info)
 
         # rewards는 0으로 반환 (runner가 소급 처리)
         rewards = np.zeros((self.num_agents, 1), dtype=np.float32)
@@ -284,6 +287,9 @@ class WiFiEnv:
         # priority: 같은 링크 내 W z-score의 sigmoid (delayed reward 가중치)
         self.ao_priority = np.full(self.num_agents, 0.5, dtype=np.float32)
         self.ao_action = np.ones(self.num_agents, dtype=np.int32) * 2  # 초기 기본값
+        # 결과 발생 시의 priority (로깅용)
+        self.pending_result_priority = np.zeros(self.num_agents, dtype=np.float32)
+        self.pending_result_type = np.full(self.num_agents, '', dtype=object)
 
         # 연속 충돌 횟수 (성공 시 0 리셋)
         self.retry = np.zeros(self.num_agents, dtype=np.int32)
@@ -363,10 +369,12 @@ class WiFiEnv:
                     self.mld_backoff[aid] = -1
 
                     # ── reward 계산 → pending에 저장 (다음 decision에서 수거)
+                    self.pending_result_priority[aid] = self.ao_priority[aid]
+                    self.pending_result_type[aid] = result
                     if result == "success":
                         self.pending_reward[aid] = 1.0 * self.ao_priority[aid]
                     else:  # collision
-                        self.pending_reward[aid] = -2.0
+                        self.pending_reward[aid] = -1.0
 
                     was_tx_agents.append(aid)
                 # was_tx=False: backoff freeze

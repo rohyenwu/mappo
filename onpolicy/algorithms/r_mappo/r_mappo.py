@@ -186,6 +186,8 @@ class R_MAPPO():
 
         train_info = {}
 
+        train_info['advantage_mean'] = float(mean_advantages)
+        train_info['advantage_std'] = float(std_advantages)
         train_info['value_loss'] = 0
         train_info['policy_loss'] = 0
         train_info['dist_entropy'] = 0

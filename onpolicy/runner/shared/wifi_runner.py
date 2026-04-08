@@ -45,6 +45,8 @@ class WiFiRunner(Runner):
 
         # priority값 수집용 버퍼
         self._episode_priority_values = []
+        self._episode_success_priorities = []
+        self._episode_collision_priorities = []
 
         # 소급 보상: 각 에이전트의 마지막 decision buffer step 추적
         # key: (thread_idx, agent_idx), value: buffer step index
@@ -132,13 +134,29 @@ class WiFiRunner(Runner):
                 else:
                     avg_priority = 0.0
                 train_infos["decided_avg_priority"] = avg_priority
-                self._episode_priority_values = []  # 다음 에피소드를 위해 초기화
+                self._episode_priority_values = []
+
+                # 결과별 priority
+                if self._episode_success_priorities:
+                    avg_success_priority = float(np.mean(self._episode_success_priorities))
+                else:
+                    avg_success_priority = 0.0
+                if self._episode_collision_priorities:
+                    avg_collision_priority = float(np.mean(self._episode_collision_priorities))
+                else:
+                    avg_collision_priority = 0.0
+                train_infos["priority_at_success"] = avg_success_priority
+                train_infos["priority_at_collision"] = avg_collision_priority
+                self._episode_success_priorities = []
+                self._episode_collision_priorities = []
 
                 print(f"  average step reward: {train_infos['average_step_rewards']:.4f}")
                 print(f"  decided avg reward:  {avg_decided:.4f}  "
                       f"(success: {avg_decided_pos:.4f}, collision: {avg_decided_neg:.4f}, "
                       f"success_ratio: {success_ratio:.4f})")
                 print(f"  decided avg priority: {avg_priority:.4f}")
+                print(f"  priority at success: {avg_success_priority:.4f}  "
+                      f"priority at collision: {avg_collision_priority:.4f}")
                 print(f"  entropy_coef:        {self.trainer.entropy_coef:.4f}")
                 train_infos["entropy_coef"] = self.trainer.entropy_coef
                 self.log_train(train_infos, total_num_steps)
@@ -251,6 +269,10 @@ class WiFiRunner(Runner):
             for aid in range(self.num_agents):
                 if info[aid]['decided']:
                     self._episode_priority_values.append(info[aid]['priority'])
+                    if info[aid].get('result_type') == 'success':
+                        self._episode_success_priorities.append(info[aid]['result_priority'])
+                    elif info[aid].get('result_type') == 'collision':
+                        self._episode_collision_priorities.append(info[aid]['result_priority'])
 
         bad_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
