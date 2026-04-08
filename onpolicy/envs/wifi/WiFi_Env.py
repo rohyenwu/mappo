@@ -65,9 +65,9 @@ class WiFiEnv:
 
     Reward
     ------
-    decision 시: priority = sigmoid((w_i - avg) / std)  (같은 링크 내 z-score)
+    decision 시: priority = 0.1 + 0.8 × (W_i - W_min) / (W_max - W_min)  (링크 내 min-max)
     success : r = +1.0 × priority
-    collision: r = -2.0
+    collision: r = -1.0
     대기     : r = 0
     """
 
@@ -221,13 +221,17 @@ class WiFiEnv:
             cw_min, cw_max = CW_TABLE[act]
             self.mld_backoff[aid] = int(np.random.randint(cw_min, cw_max))
 
-            # priority: 같은 링크 내 W z-score → sigmoid
+            # priority: 같은 링크 내 W를 log 스케일링 후 min-max → 0.1~0.9
             _, link = self.agent_sta_link[aid]
             link_w = np.array([w[a] for a in self.link_agents[link]], dtype=np.float32)
-            avg = np.mean(link_w)
-            std = max(np.std(link_w), 1e-6)
-            z = (w[aid] - avg) / std
-            self.ao_priority[aid] = 1.0 / (1.0 + np.exp(-3.0 * z))
+            log_link_w = np.log1p(link_w)  # log(1 + W) → W=0 안전
+            log_wi = np.log1p(w[aid])
+            log_min = np.min(log_link_w)
+            log_max = np.max(log_link_w)
+            if log_max - log_min < 1e-6:
+                self.ao_priority[aid] = 0.5
+            else:
+                self.ao_priority[aid] = 0.1 + 0.8 * (log_wi - log_min) / (log_max - log_min)
 
         self.need_decision[:] = False
 
