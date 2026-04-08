@@ -43,8 +43,8 @@ class WiFiRunner(Runner):
         self.train_action_dist_csv = os.path.join(str(self.log_dir), 'train_action_dist.csv')
         self._action_dist_csv_initialized = False
 
-        # e값 수집용 버퍼
-        self._episode_e_values = []
+        # priority값 수집용 버퍼
+        self._episode_priority_values = []
 
         # 소급 보상: 각 에이전트의 마지막 decision buffer step 추적
         # key: (thread_idx, agent_idx), value: buffer step index
@@ -126,19 +126,19 @@ class WiFiRunner(Runner):
                 train_infos["decided_avg_reward_collision"] = avg_decided_neg
                 train_infos["decided_success_ratio"] = success_ratio
 
-                # 평균 e (A*와의 괴리)
-                if self._episode_e_values:
-                    avg_e = float(np.mean(self._episode_e_values))
+                # 평균 priority
+                if self._episode_priority_values:
+                    avg_priority = float(np.mean(self._episode_priority_values))
                 else:
-                    avg_e = 0.0
-                train_infos["decided_avg_e"] = avg_e
-                self._episode_e_values = []  # 다음 에피소드를 위해 초기화
+                    avg_priority = 0.0
+                train_infos["decided_avg_priority"] = avg_priority
+                self._episode_priority_values = []  # 다음 에피소드를 위해 초기화
 
                 print(f"  average step reward: {train_infos['average_step_rewards']:.4f}")
                 print(f"  decided avg reward:  {avg_decided:.4f}  "
                       f"(success: {avg_decided_pos:.4f}, collision: {avg_decided_neg:.4f}, "
                       f"success_ratio: {success_ratio:.4f})")
-                print(f"  decided avg e:       {avg_e:.4f}")
+                print(f"  decided avg priority: {avg_priority:.4f}")
                 print(f"  entropy_coef:        {self.trainer.entropy_coef:.4f}")
                 train_infos["entropy_coef"] = self.trainer.entropy_coef
                 self.log_train(train_infos, total_num_steps)
@@ -246,11 +246,11 @@ class WiFiRunner(Runner):
             dtype=np.float32,
         )  # shape: (n_rollout_threads, num_agents, 1)
 
-        # e값 수집 (deciding 에이전트만)
+        # priority값 수집 (deciding 에이전트만)
         for t_idx, info in enumerate(infos):
             for aid in range(self.num_agents):
                 if info[aid]['decided']:
-                    self._episode_e_values.append(info[aid]['e'])
+                    self._episode_priority_values.append(info[aid]['priority'])
 
         bad_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
 

@@ -21,13 +21,6 @@ W_MAX = 1000   # W clip 상한 (한 번도 성공 못 한 경우 포함)
 
 # ── 학습 하이퍼파라미터 ────────────────────────────────────────────────────────
 LAMBDA = 0.2   # h EMA 감쇠율
-BETA   = 0.1   # r_ind 스케일
-ALPHA  = 1.0   # r_global 스케일
-
-# ── 목표 공격성 sigmoid 스케일 ────────────────────────────────────────────────
-W_SCALE = 0.005  # W cap 200 → 기여 0~1.0
-H_SCALE = 1.0    # h 범위 -1~1 → 기여 -1~1
-R_SCALE = 0.8    # retry cap 6 → 기여 0~4.8
 
 # ── throughput 파라미터 ────────────────────────────────────────────────────────
 PKT_PER_SUCCESS = [1, 2, 3]  # 링크별 성공당 패킷 수 (2.4GHz, 5GHz, 6GHz)
@@ -54,8 +47,8 @@ class WiFiEnv:
     Sample
     ------
     s  = 결과 발생 직후 상태 (새 action 선택 직전)
-    a  = 선택한 CW 레벨 (0~4)
-    r  = 다음 결과 발생 시 계산 (ao_h, ao_action 사용)
+    a  = 선택한 CW 레벨 (0~5)
+    r  = 다음 결과 발생 시 계산 (ao_priority 사용)
     s' = 다음 결과 발생 직후 상태
 
     State  (6 dim)
@@ -70,28 +63,19 @@ class WiFiEnv:
     -------------------
     0~5 = CW level  (0: 가장 공격적 A=0.85, 5: 가장 보수적 A=0.05)
 
-    Reward  (use_ind_reward=True 일 때)
-    ------------------------------------
-    A*(W,h,retry) = sigmoid(w_scale*W + h_scale*h - r_scale*retry)
-    e = (A(action) − A*)²
-    success : r = +(1 − e)    →  [0, +1]
-    collision: r = −e          →  [−1, 0]
-
-    Reward  (use_ind_reward=False 일 때)
-    -------------------------------------
-    success : r = +1
-    collision: r = −1
+    Reward
+    ------
+    decision 시: priority = sigmoid((w_i - avg) / std)  (같은 링크 내 z-score)
+    success : r = +1.0 × priority
+    collision: r = -2.0
+    대기     : r = 0
     """
 
     def __init__(self, num_mld_a: int = 2, num_mld_b: int = 2,
-                 num_sld_per_link: int = 2,
-                 use_ind_reward: bool = True,
-                 use_w_in_astar: bool = True):
+                 num_sld_per_link: int = 2):
         self.num_mld_a     = num_mld_a
         self.num_mld_b     = num_mld_b
         self.num_sld       = num_sld_per_link
-        self.use_ind_reward = use_ind_reward
-        self.use_w_in_astar = use_w_in_astar
         self.num_links = 3
         self.total_mld = num_mld_a + num_mld_b
 
@@ -198,7 +182,6 @@ class WiFiEnv:
         self.sld_collision_count[:] = 0
         self.t_train_start = self.t
         self.pending_reward = np.zeros(self.num_agents, dtype=np.float32)
-        self.pending_e = np.zeros(self.num_agents, dtype=np.float32)
 
         obs, share_obs = self._build_obs()
         return obs, share_obs, self._make_available_actions()
@@ -222,16 +205,14 @@ class WiFiEnv:
         # ── Phase 0: decided 에이전트의 pending reward 수거 ───────────────────
         decided = self.need_decision.copy()
         pending_rewards = np.zeros((self.num_agents, 1), dtype=np.float32)
-        self._last_e = np.zeros(self.num_agents, dtype=np.float32)
 
         for aid in range(self.num_agents):
             if decided[aid]:
                 pending_rewards[aid, 0] = self.pending_reward[aid]
-                self._last_e[aid] = self.pending_e[aid]
                 self.pending_reward[aid] = 0.0
-                self.pending_e[aid] = 0.0
 
-        # ── Phase 1: decision 에이전트 action 적용 ────────────────────────────
+        # ── Phase 1: decision 에이전트 action 적용 + priority 계산 ────────────
+        w = self._compute_w()
         for aid in range(self.num_agents):
             if not self.need_decision[aid]:
                 continue
@@ -239,6 +220,14 @@ class WiFiEnv:
             self.ao_action[aid] = act
             cw_min, cw_max = CW_TABLE[act]
             self.mld_backoff[aid] = int(np.random.randint(cw_min, cw_max))
+
+            # priority: 같은 링크 내 W z-score → sigmoid
+            _, link = self.agent_sta_link[aid]
+            link_w = np.array([w[a] for a in self.link_agents[link]], dtype=np.float32)
+            avg = np.mean(link_w)
+            std = max(np.std(link_w), 1e-6)
+            z = (w[aid] - avg) / std
+            self.ao_priority[aid] = 1.0 / (1.0 + np.exp(-z))
 
         self.need_decision[:] = False
 
@@ -255,7 +244,7 @@ class WiFiEnv:
             {
                 'bad_transition': False,
                 'decided': bool(decided[aid]),
-                'e': float(self._last_e[aid]),
+                'priority': float(self.ao_priority[aid]),
                 'pending_reward': float(pending_rewards[aid, 0]),
             }
             for aid in range(self.num_agents)
@@ -278,9 +267,7 @@ class WiFiEnv:
     def _init_state(self):
         self.t = 0
         self.t_train_start = 0
-        self._last_e = None  # step()에서 초기화
         self.pending_reward = np.zeros(self.num_agents, dtype=np.float32)
-        self.pending_e = np.zeros(self.num_agents, dtype=np.float32)
 
         self.last_success = np.full(
             (self.total_mld, self.num_links), -W_MAX, dtype=np.float64
@@ -294,10 +281,8 @@ class WiFiEnv:
         # need_decision: 결과를 겪어 새 CW 결정이 필요한 에이전트
         self.need_decision = np.zeros(self.num_agents, dtype=bool)
 
-        # 새 action 선택 직전 저장값 (delayed reward 계산용)
-        self.ao_h      = np.zeros(self.num_agents, dtype=np.float32)
-        self.ao_w      = np.zeros(self.num_agents, dtype=np.float32)
-        self.ao_retry  = np.zeros(self.num_agents, dtype=np.int32)
+        # priority: 같은 링크 내 W z-score의 sigmoid (delayed reward 가중치)
+        self.ao_priority = np.full(self.num_agents, 0.5, dtype=np.float32)
         self.ao_action = np.ones(self.num_agents, dtype=np.int32) * 2  # 초기 기본값
 
         # 연속 충돌 횟수 (성공 시 0 리셋)
@@ -331,10 +316,9 @@ class WiFiEnv:
         슬롯 1개 진행.
 
         was_tx=True 에이전트에 대해:
-          1. reward 계산 (ao_h, ao_action 사용)
-          2. 상태 업데이트 (h, last_success)
-          3. ao_h 저장 (새 action 선택 직전 상태)
-          4. need_decision = True
+          1. 상태 업데이트 (h, last_success, retry)
+          2. reward 계산 (ao_priority 사용) → pending에 저장
+          3. need_decision = True
         """
         # ── 링크별 전송 결과 ──────────────────────────────────────────────────
         link_results = {}
@@ -379,22 +363,10 @@ class WiFiEnv:
                     self.mld_backoff[aid] = -1
 
                     # ── reward 계산 → pending에 저장 (다음 decision에서 수거)
-                    if self.use_ind_reward:
-                        retry_clip = min(self.ao_retry[aid], 6)
-                        sig_input = (H_SCALE * self.ao_h[aid]
-                                     - R_SCALE * retry_clip)
-                        if self.use_w_in_astar:
-                            w_clip = min(self.ao_w[aid], 200.0)
-                            sig_input += W_SCALE * w_clip
-                        a_star = 1.0 / (1.0 + np.exp(-sig_input))
-                        e = (float(A_TABLE[self.ao_action[aid]]) - a_star) ** 2
-                        self.pending_e[aid] = e
-                        if result == "success":
-                            self.pending_reward[aid] = 1.0 - e
-                        else:
-                            self.pending_reward[aid] = -e
-                    else:
-                        self.pending_reward[aid] = 1.0 if result == "success" else -1.0
+                    if result == "success":
+                        self.pending_reward[aid] = 1.0 * self.ao_priority[aid]
+                    else:  # collision
+                        self.pending_reward[aid] = -2.0
 
                     was_tx_agents.append(aid)
                 # was_tx=False: backoff freeze
@@ -407,14 +379,9 @@ class WiFiEnv:
 
         self.h = new_h
 
-        # ── was_tx 에이전트: ao 상태 저장 (새 action 선택 직전) ────────────
-        if was_tx_agents:
-            w = self._compute_w()
-            for aid in was_tx_agents:
-                self.ao_h[aid] = self.h[aid]
-                self.ao_w[aid] = w[aid]
-                self.ao_retry[aid] = self.retry[aid]
-                self.need_decision[aid] = True
+        # ── was_tx 에이전트: need_decision 플래그 설정 ────────────────────
+        for aid in was_tx_agents:
+            self.need_decision[aid] = True
 
         # ── SLD 상태 업데이트 ─────────────────────────────────────────────────
         for j in range(self.num_links):
