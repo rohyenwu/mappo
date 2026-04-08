@@ -48,6 +48,9 @@ class WiFiRunner(Runner):
         self._episode_success_priorities = []
         self._episode_collision_priorities = []
 
+        # W구간별 action 수집용 버퍼
+        self._episode_w_action = []  # list of (w_norm, action)
+
         # 소급 보상: 각 에이전트의 마지막 decision buffer step 추적
         # key: (thread_idx, agent_idx), value: buffer step index
         self._last_decision_step = {}
@@ -157,6 +160,24 @@ class WiFiRunner(Runner):
                 print(f"  decided avg priority: {avg_priority:.4f}")
                 print(f"  priority at success: {avg_success_priority:.4f}  "
                       f"priority at collision: {avg_collision_priority:.4f}")
+
+                # W구간별 평균 action
+                if self._episode_w_action:
+                    wa = self._episode_w_action
+                    low_w  = [a for w, a in wa if w < 0.33]
+                    mid_w  = [a for w, a in wa if 0.33 <= w < 0.66]
+                    high_w = [a for w, a in wa if w >= 0.66]
+                    avg_act_low  = float(np.mean(low_w))  if low_w  else -1
+                    avg_act_mid  = float(np.mean(mid_w))  if mid_w  else -1
+                    avg_act_high = float(np.mean(high_w)) if high_w else -1
+                    train_infos["action_by_w/low_w_avg_action"]  = avg_act_low
+                    train_infos["action_by_w/mid_w_avg_action"]  = avg_act_mid
+                    train_infos["action_by_w/high_w_avg_action"] = avg_act_high
+                    print(f"  action by W:  low(<0.33)={avg_act_low:.2f}  "
+                          f"mid(0.33~0.66)={avg_act_mid:.2f}  "
+                          f"high(>=0.66)={avg_act_high:.2f}")
+                self._episode_w_action = []
+
                 print(f"  entropy_coef:        {self.trainer.entropy_coef:.4f}")
                 train_infos["entropy_coef"] = self.trainer.entropy_coef
                 self.log_train(train_infos, total_num_steps)
@@ -269,6 +290,7 @@ class WiFiRunner(Runner):
             for aid in range(self.num_agents):
                 if info[aid]['decided']:
                     self._episode_priority_values.append(info[aid]['priority'])
+                    self._episode_w_action.append((info[aid]['w_norm'], info[aid]['action']))
                     if info[aid].get('result_type') == 'success':
                         self._episode_success_priorities.append(info[aid]['result_priority'])
                     elif info[aid].get('result_type') == 'collision':

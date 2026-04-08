@@ -247,10 +247,12 @@ class WiFiEnv:
                 'decided': bool(decided[aid]),
                 'priority': float(self.ao_priority[aid]),
                 'pending_reward': float(pending_rewards[aid, 0]),
+                'w_norm': float(min(w[aid], 200.0) / 200.0),
             }
             if decided[aid]:
                 info['result_type'] = str(self.pending_result_type[aid])
                 info['result_priority'] = float(self.pending_result_priority[aid])
+                info['action'] = int(actions[aid])
             infos.append(info)
 
         # rewards는 0으로 반환 (runner가 소급 처리)
