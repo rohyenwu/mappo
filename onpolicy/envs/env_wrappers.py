@@ -761,6 +761,20 @@ class ShareDummyVecEnv(ShareVecEnv):
         """첫 번째 env의 collision_rate 반환 (WiFi 전용)."""
         return self.envs[0].get_collision_rate()
 
+    def get_bg_obs(self):
+        """각 env의 배경 에이전트 obs 반환 (WiFi 전용)."""
+        return [env.get_bg_obs() for env in self.envs]
+
+    def set_bg_actions(self, bg_actions_list):
+        """각 env에 배경 에이전트 action 전달 (WiFi 전용)."""
+        for env, bg_actions in zip(self.envs, bg_actions_list):
+            env.set_bg_actions(bg_actions)
+
+    def randomize_background(self):
+        """각 env의 배경 MLD/SLD 수 랜덤화 (WiFi 전용)."""
+        for env in self.envs:
+            env.randomize_background()
+
     def render(self, mode="human"):
         if mode == "rgb_array":
             return np.array([env.render(mode=mode) for env in self.envs])

@@ -185,7 +185,7 @@ def get_config():
 
     # replay buffer parameters
     parser.add_argument("--episode_length", type=int,
-                        default=200, help="Max length for any episode")
+                        default=500, help="Max length for any episode")
 
     # network parameters
     parser.add_argument("--share_policy", action='store_false',
@@ -230,8 +230,8 @@ def get_config():
     parser.add_argument("--weight_decay", type=float, default=0)
 
     # ppo parameters
-    parser.add_argument("--ppo_epoch", type=int, default=15,
-                        help='number of ppo epochs (default: 15)')
+    parser.add_argument("--ppo_epoch", type=int, default=6,
+                        help='number of ppo epochs (default: 6)')
     parser.add_argument("--use_clipped_value_loss",
                         action='store_false', default=True, help="by default, clip loss value. If set, do not clip loss value.")
     parser.add_argument("--clip_param", type=float, default=0.2,

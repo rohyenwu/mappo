@@ -73,12 +73,18 @@ class WiFiRunner(Runner):
             if self.all_args.entropy_coef_min is not None:
                 self.trainer.entropy_decay(episode, episodes)
 
+            # ── 배경 에이전트 수 랜덤화 ─────────────────────────────────────
+            self.envs.randomize_background()
+
             # ── 에피소드 롤아웃 수집 ─────────────────────────────────────────
             self._last_decision_step.clear()  # 새 에피소드마다 초기화
 
             for step in range(self.episode_length):
                 values, actions, action_log_probs, rnn_states, rnn_states_critic = \
                     self.collect(step)
+
+                # 배경 에이전트 policy forward
+                self._step_bg_agents()
 
                 obs, share_obs, rewards, dones, infos, available_actions = \
                     self.envs.step(actions)
@@ -104,12 +110,17 @@ class WiFiRunner(Runner):
 
             if episode % self.log_interval == 0:
                 end = time.time()
+                # 현재 배경 설정 (첫 번째 env 기준)
+                env0 = self.envs.envs[0]
+                bg_info = (f"MLD-A={env0.cur_mld_a} MLD-B={env0.cur_mld_b} "
+                           f"SLD={env0.cur_sld} (bg={env0.num_bg_agents})")
                 print(
                     f"\n[WiFi] Algo {self.algorithm_name} | "
                     f"Exp {self.experiment_name} | "
                     f"Episode {episode}/{episodes} | "
                     f"Steps {total_num_steps}/{self.num_env_steps} | "
-                    f"FPS {int(total_num_steps / (end - start))}"
+                    f"FPS {int(total_num_steps / (end - start))}\n"
+                    f"  bg config: {bg_info}"
                 )
                 train_infos["average_step_rewards"] = np.mean(self.buffer.rewards)
 
@@ -195,6 +206,64 @@ class WiFiRunner(Runner):
 
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # 배경 에이전트 policy forward
+    # ──────────────────────────────────────────────────────────────────────────
+
+    @torch.no_grad()
+    def _step_bg_agents(self):
+        """배경 MLD의 obs를 policy에 forward하여 action을 env에 전달."""
+        self.trainer.prep_rollout()
+        bg_results = self.envs.get_bg_obs()  # list of (bg_obs, bg_avail) per env
+        bg_actions_list = []
+
+        for bg_obs, bg_avail in bg_results:
+            if bg_obs is None or len(bg_obs) == 0:
+                bg_actions_list.append(None)
+                continue
+
+            n_bg = len(bg_obs)
+            bg_obs_t   = torch.FloatTensor(bg_obs).to(self.device)
+            bg_rnn     = torch.zeros(n_bg, self.recurrent_N, self.hidden_size,
+                                     device=self.device)
+            bg_masks   = torch.ones(n_bg, 1, device=self.device)
+            bg_avail_t = torch.FloatTensor(bg_avail).to(self.device)
+
+            bg_act, _ = self.trainer.policy.act(
+                bg_obs_t, bg_rnn, bg_masks, bg_avail_t, deterministic=False,
+            )
+            bg_actions_list.append(_t2n(bg_act))
+
+        self.envs.set_bg_actions(bg_actions_list)
+
+    @torch.no_grad()
+    def _step_bg_agents_eval(self):
+        """eval 환경의 배경 MLD policy forward."""
+        if self.eval_envs is None:
+            return
+        self.trainer.prep_rollout()
+        bg_results = self.eval_envs.get_bg_obs()
+        bg_actions_list = []
+
+        for bg_obs, bg_avail in bg_results:
+            if bg_obs is None or len(bg_obs) == 0:
+                bg_actions_list.append(None)
+                continue
+
+            n_bg = len(bg_obs)
+            bg_obs_t   = torch.FloatTensor(bg_obs).to(self.device)
+            bg_rnn     = torch.zeros(n_bg, self.recurrent_N, self.hidden_size,
+                                     device=self.device)
+            bg_masks   = torch.ones(n_bg, 1, device=self.device)
+            bg_avail_t = torch.FloatTensor(bg_avail).to(self.device)
+
+            bg_act, _ = self.trainer.policy.act(
+                bg_obs_t, bg_rnn, bg_masks, bg_avail_t, deterministic=True,
+            )
+            bg_actions_list.append(_t2n(bg_act))
+
+        self.eval_envs.set_bg_actions(bg_actions_list)
 
     # ──────────────────────────────────────────────────────────────────────────
     # warmup / collect / insert
@@ -460,6 +529,9 @@ class WiFiRunner(Runner):
         eval_episode_rewards = []
 
         for _ in range(self.episode_length):
+            # eval 배경 에이전트 forward
+            self._step_bg_agents_eval()
+
             self.trainer.prep_rollout()
             eval_actions, eval_rnn_states = self.trainer.policy.act(
                 np.concatenate(eval_obs),

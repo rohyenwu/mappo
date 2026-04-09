@@ -44,6 +44,9 @@ def make_env(all_args, seed_offset: int):
                 num_mld_a=all_args.num_mld_a,
                 num_mld_b=all_args.num_mld_b,
                 num_sld_per_link=all_args.num_sld,
+                max_mld_a=all_args.max_mld_a,
+                max_mld_b=all_args.max_mld_b,
+                max_sld_per_link=all_args.max_sld,
             )
             env.seed(seed_offset + rank * 1000)
             return env
@@ -83,6 +86,18 @@ def parse_args(args, parser):
     parser.add_argument(
         '--num_sld', type=int, default=2,
         help="링크당 SLD STA 수  (CSMA/CA)",
+    )
+    parser.add_argument(
+        '--max_mld_a', type=int, default=6,
+        help="MLD-A 최대 수 (배경 포함, 랜덤 범위 상한)",
+    )
+    parser.add_argument(
+        '--max_mld_b', type=int, default=6,
+        help="MLD-B 최대 수 (배경 포함, 랜덤 범위 상한)",
+    )
+    parser.add_argument(
+        '--max_sld', type=int, default=4,
+        help="링크당 SLD 최대 수 (랜덤 범위 상한)",
     )
     return parser.parse_known_args(args)[0]
 
