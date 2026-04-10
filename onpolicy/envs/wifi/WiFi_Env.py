@@ -110,13 +110,14 @@ class WiFiEnv:
         self.max_link_agents = max_mld_a + max_mld_b
 
         # ── Gym 공간 (학습 에이전트 기준) ─────────────────────────────────────
-        obs_low  = np.array([0.0, -1.0, 0.0, 0.0, 0.0, 0.0], dtype=np.float32)
-        obs_high = np.array([1.0,  1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32)
+        obs_low  = np.array([0.0, -1.0, 0.0, 0.0, 0.0, 0.0, -1.0], dtype=np.float32)
+        obs_high = np.array([1.0,  1.0, 1.0, 1.0, 1.0, 1.0,  1.0], dtype=np.float32)
 
         self.observation_space = [
             spaces.Box(obs_low, obs_high, dtype=np.float32)
         ] * self.num_agents
 
+        self.obs_dim = len(obs_low)
         self.share_observation_space = [
             spaces.Box(
                 low=np.tile(obs_low, self.max_link_agents),
@@ -140,7 +141,7 @@ class WiFiEnv:
         self._update_active_mask()
 
         # 배경 obs 캐시
-        self._bg_obs_cache = np.zeros((self.max_all_agents, 6), dtype=np.float32)
+        self._bg_obs_cache = np.zeros((self.max_all_agents, 7), dtype=np.float32)
 
         self._init_state()
 
@@ -417,6 +418,7 @@ class WiFiEnv:
         self.last_success = np.full(
             (self.max_total_mld, self.num_links), -W_MAX, dtype=np.float64
         )
+        self.link_last_success = np.full(self.num_links, -W_MAX, dtype=np.float64)
         self.h    = np.zeros(self.max_all_agents, dtype=np.float32)
         self.difs = np.zeros(self.max_all_agents, dtype=np.int32)
 
@@ -493,6 +495,7 @@ class WiFiEnv:
                     new_h[aid] = (1.0 - LAMBDA) * self.h[aid] + LAMBDA * x
                     if result == "success":
                         self.last_success[sta, link] = self.t
+                        self.link_last_success[link] = self.t
                         self.mld_success_count[link] += 1
                         self.retry[aid] = 0
                     else:
@@ -534,6 +537,7 @@ class WiFiEnv:
                         sld['retry']   = 0
                         sld['backoff'] = int(np.random.randint(0, sld['cw']))
                         self.sld_success_count[j] += 1
+                        self.link_last_success[j] = self.t
                     sld['difs'] = 0
                 else:  # collision
                     if idx in sld_txers:
@@ -558,7 +562,10 @@ class WiFiEnv:
     def _build_all_obs(self) -> np.ndarray:
         """모든 활성 에이전트의 관측 생성."""
         w = self._compute_w()
-        all_obs = np.zeros((self.max_all_agents, 6), dtype=np.float32)
+        link_w = np.array([
+            min(self.t - self.link_last_success[j], W_MAX) for j in range(self.num_links)
+        ], dtype=np.float32)
+        all_obs = np.zeros((self.max_all_agents, 7), dtype=np.float32)
         for aid in range(self.max_all_agents):
             if not self.active[aid]:
                 continue
@@ -567,20 +574,23 @@ class WiFiEnv:
             one_hot[link] = 1.0
             w_norm = min(w[aid], 200.0) / 200.0
             r_norm = min(float(self.retry[aid]), float(RETRY_LIMIT)) / float(RETRY_LIMIT)
-            all_obs[aid] = [w_norm, self.h[aid], r_norm, *one_hot]
+            link_w_norm = min(link_w[link], 200.0) / 200.0
+            relative_w = link_w_norm - w_norm  # -1 ~ +1
+            all_obs[aid] = [w_norm, self.h[aid], r_norm, *one_hot, relative_w]
         return all_obs
 
     def _build_share_obs(self, all_obs: np.ndarray) -> np.ndarray:
         """학습 에이전트의 share_obs 생성 (배경 포함, zero-padding)."""
+        obs_dim = all_obs.shape[1]
         share_obs = np.zeros(
-            (self.num_agents, self.max_link_agents * 6), dtype=np.float32
+            (self.num_agents, self.max_link_agents * obs_dim), dtype=np.float32
         )
         for aid in range(self.num_agents):
             _, link = self.all_sta_link[aid]
             for i, la in enumerate(self.link_agents[link]):
                 if i >= self.max_link_agents:
                     break
-                share_obs[aid, i*6:(i+1)*6] = all_obs[la]
+                share_obs[aid, i*obs_dim:(i+1)*obs_dim] = all_obs[la]
         return share_obs
 
     def _make_available_actions(self) -> np.ndarray:
