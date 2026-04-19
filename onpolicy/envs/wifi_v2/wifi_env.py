@@ -157,10 +157,9 @@ class WiFiEnvV2:
 
     def _generate_mu(self):
         """MLD별 링크별 도착률 랜덤 생성."""
-        self.mu = np.random.uniform(
-            self.mu_range[0], self.mu_range[1],
-            size=(self.num_mld, 2)
-        ).astype(np.float32)
+        fixed_mu = np.linspace(0.1, 1.0, self.num_mld, dtype=np.float32)
+        self.mu[:, 0] = fixed_mu
+        self.mu[:, 1] = fixed_mu
 
     def _generate_packets(self):
         """라운드 시작 시 패킷 일괄 생성."""
