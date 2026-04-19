@@ -36,6 +36,34 @@ class WiFiV2Runner(Runner):
         self.train_csv = os.path.join(str(self.log_dir), "train_metrics.csv")
         self._csv_initialized = False
 
+    def _log_episode_reward(self, episode_idx):
+        """Log episode-level reward so convergence can be viewed on an episode axis."""
+        episode_reward_total = float(np.sum(self.buffer.rewards))
+        episode_reward_mean = float(np.mean(self.buffer.rewards))
+        episode_reward_per_agent = episode_reward_total / max(
+            self.n_rollout_threads * self.num_agents, 1
+        )
+
+        if self.use_wandb:
+            import wandb
+
+            wandb.log(
+                {
+                    "episode": episode_idx + 1,
+                    "episode_reward/total": episode_reward_total,
+                    "episode_reward/mean_step_agent": episode_reward_mean,
+                    "episode_reward/per_agent": episode_reward_per_agent,
+                }
+            )
+        else:
+            self.writter.add_scalar("episode_reward/total", episode_reward_total, episode_idx + 1)
+            self.writter.add_scalar(
+                "episode_reward/mean_step_agent", episode_reward_mean, episode_idx + 1
+            )
+            self.writter.add_scalar(
+                "episode_reward/per_agent", episode_reward_per_agent, episode_idx + 1
+            )
+
     def run(self):
         self.warmup()
 
@@ -71,6 +99,7 @@ class WiFiV2Runner(Runner):
 
             self.compute()
             train_infos = self.train()
+            self._log_episode_reward(episode)
 
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
 
