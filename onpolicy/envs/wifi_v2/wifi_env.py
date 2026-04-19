@@ -335,6 +335,11 @@ class WiFiEnvV2:
         actions_flat = actions.flatten().astype(int)
 
         rewards = np.zeros((self.num_agents, 1), dtype=np.float32)
+        reward_global = np.zeros(self.num_agents, dtype=np.float32)
+        reward_local = np.zeros(self.num_agents, dtype=np.float32)
+        reward_sparse = np.zeros(self.num_agents, dtype=np.float32)
+        reward_dense = np.zeros(self.num_agents, dtype=np.float32)
+        link_result = np.full(self.num_agents, "", dtype=object)
 
         # ── 링크별 TXOP 처리 ──────────────────────────────────────────────────
         for link_id in range(self.num_links):
@@ -406,6 +411,10 @@ class WiFiEnvV2:
                         r_local = 1.0
 
                 rewards[aid, 0] = r_global + r_local
+                reward_global[aid] = r_global
+                reward_local[aid] = r_local
+                reward_dense[aid] = r_global + r_local
+                link_result[aid] = result
 
             # ── S, P, 충돌 카운터 업데이트 (reward 계산 후) ─────────────────
             if success_aid is not None:
@@ -430,7 +439,7 @@ class WiFiEnvV2:
 
         # ── Sparse reward (라운드 끝, 2.4GHz만) ──────────────────────────────
         if done:
-            self._apply_sparse_reward(rewards)
+            reward_sparse = self._apply_sparse_reward_with_trace(rewards)
 
         # ── 결과 구성 ─────────────────────────────────────────────────────────
         obs = self._build_obs()
@@ -444,6 +453,17 @@ class WiFiEnvV2:
             infos.append({
                 'fulfillment': self._get_fulfillment(mld_id, link_id),
                 'round_done': done,
+                'reward/global': float(reward_global[aid]),
+                'reward/local': float(reward_local[aid]),
+                'reward/dense': float(reward_dense[aid]),
+                'reward/sparse': float(reward_sparse[aid]),
+                'reward/total': float(rewards[aid, 0]),
+                f'reward/link_{link_id}/global': float(reward_global[aid]),
+                f'reward/link_{link_id}/local': float(reward_local[aid]),
+                f'reward/link_{link_id}/dense': float(reward_dense[aid]),
+                f'reward/link_{link_id}/sparse': float(reward_sparse[aid]),
+                f'reward/link_{link_id}/total': float(rewards[aid, 0]),
+                'txop_result': link_result[aid],
             })
 
         # 라운드 끝이면 throughput/collision 캐시 저장
@@ -488,6 +508,38 @@ class WiFiEnvV2:
                 # 달성: 양보 MLD 보상
                 bonus = self.zeta * max(0, skips[idx] - skip_avg)
                 rewards[aid, 0] += bonus
+
+    def _apply_sparse_reward_with_trace(self, rewards):
+        """Apply sparse reward and return the per-agent sparse component."""
+        sparse_rewards = np.zeros(self.num_agents, dtype=np.float32)
+
+        avg_sld = self.round_sld_success / max(self.round_length, 1)
+        n_mld_24 = len(self.link_agents[0])
+        theta = self.num_sld / max(self.num_sld + n_mld_24, 1)
+
+        link_0_aids = self.link_agents[0]
+        participations = []
+        skips = []
+        for aid in link_0_aids:
+            mld_id, _ = self.agent_to_mld_link[aid]
+            p_i = self.P[mld_id, 0]
+            participations.append(p_i)
+            skips.append(self.round_length - p_i)
+
+        p_avg = np.mean(participations) if participations else 0
+        skip_avg = np.mean(skips) if skips else 0
+
+        for idx, aid in enumerate(link_0_aids):
+            if avg_sld < theta:
+                penalty = self.eta * max(0, participations[idx] - p_avg)
+                rewards[aid, 0] -= penalty
+                sparse_rewards[aid] -= penalty
+            else:
+                bonus = self.zeta * max(0, skips[idx] - skip_avg)
+                rewards[aid, 0] += bonus
+                sparse_rewards[aid] += bonus
+
+        return sparse_rewards
 
     def close(self):
         pass

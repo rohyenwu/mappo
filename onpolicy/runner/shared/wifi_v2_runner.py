@@ -114,6 +114,33 @@ class WiFiV2Runner(Runner):
                 train_infos["transmit_ratio"] = transmit_ratio
                 train_infos["avg_fulfillment"] = avg_fulfillment
 
+                if infos is not None:
+                    reward_keys = [
+                        "reward/global",
+                        "reward/local",
+                        "reward/dense",
+                        "reward/sparse",
+                        "reward/total",
+                        "reward/link_0/global",
+                        "reward/link_0/local",
+                        "reward/link_0/dense",
+                        "reward/link_0/sparse",
+                        "reward/link_0/total",
+                        "reward/link_1/global",
+                        "reward/link_1/local",
+                        "reward/link_1/dense",
+                        "reward/link_1/sparse",
+                        "reward/link_1/total",
+                    ]
+                    for key in reward_keys:
+                        values = []
+                        for env_infos in infos:
+                            for info in env_infos:
+                                if key in info:
+                                    values.append(info[key])
+                        if values:
+                            train_infos[key] = float(np.mean(values))
+
                 env0 = self.envs.envs[0]
                 tp = env0.get_throughput()
                 for k, v in tp.items():
