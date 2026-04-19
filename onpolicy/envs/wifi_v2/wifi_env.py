@@ -203,16 +203,20 @@ class WiFiEnvV2:
 
         return {aid: lack / total_lack for aid, lack in lacks.items()}
 
-    def _get_link_top_urgency_agents(self, link_id, urgencies=None):
-        """Return all tie agents with the highest urgency on the link."""
+    def _get_link_top_urgency_agent(self, link_id, urgencies=None):
+        """Return a single top-urgency agent on the link."""
         if urgencies is None:
             urgencies = self._get_link_urgencies(link_id)
 
-        max_urgency = max(urgencies.values(), default=0.0)
-        return {
+        if not urgencies:
+            return None
+
+        max_urgency = max(urgencies.values())
+        top_candidates = [
             aid for aid, urgency in urgencies.items()
             if abs(urgency - max_urgency) < 1e-9
-        }
+        ]
+        return min(top_candidates)
 
     def _build_obs(self):
         """모든 agent의 observation 생성."""
@@ -374,19 +378,19 @@ class WiFiEnvV2:
             # ── reward 계산 (S 증가 전에 수행) ────────────────────────────────
             # 최저충족 판정과 f(·)/g(·) 계산은 현재 fulfillment 기준이어야 함
             urgencies = self._get_link_urgencies(link_id)
-            top_aids = self._get_link_top_urgency_agents(link_id, urgencies)
+            top_aid = self._get_link_top_urgency_agent(link_id, urgencies)
 
             # r_global
             r_global = 0.0
             if result == "success" and not success_is_sld:
-                if success_aid in top_aids:
+                if success_aid == top_aid:
                     r_global = 1.0
                 else:
                     r_global = urgencies.get(success_aid, 0.0)
             elif result == "success" and success_is_sld:
                 r_global = self.r_sld if link_id == 0 else 0.0
             elif result == "collision":
-                r_global = -1.0
+                r_global = -2.0
             elif result == "idle":
                 r_global = -self.c_idle
 
@@ -399,14 +403,14 @@ class WiFiEnvV2:
                 # D=0 (수요 없음): 전송하면 페널티, skip하면 중립
                 if self.D[mld_id, link_id] == 0:
                     r_local = -1.0 if transmitted else 0.0
-                elif aid in top_aids:
+                elif aid == top_aid:
                     if transmitted:
                         r_local = 1.0
                     else:
                         r_local = -(1.0 + urgency)
                 else:
                     if transmitted:
-                        r_local = -1.0
+                        r_local = -2.0
                     else:
                         r_local = 1.0
 
