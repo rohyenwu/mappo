@@ -44,6 +44,7 @@ def make_env(all_args, seed_offset: int):
                 zeta=all_args.zeta,
                 r_sld=all_args.r_sld,
                 c_idle=all_args.c_idle,
+                theta_scale=all_args.theta_scale,
             )
             env.seed(seed_offset + rank * 1000)
             return env
@@ -87,6 +88,8 @@ def parse_args(args, parser):
                         help="2.4GHz link에서 SLD 성공 시 r_global")
     parser.add_argument('--c_idle', type=float, default=0.3,
                         help="idle TXOP에 대한 r_global penalty")
+    parser.add_argument('--theta_scale', type=float, default=1.0,
+                        help="Scale factor for the SLD protection threshold theta")
     return parser.parse_known_args(args)[0]
 
 

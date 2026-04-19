@@ -43,6 +43,7 @@ class WiFiEnvV2:
         zeta: float = 1.0,
         r_sld: float = 0.3,
         c_idle: float = 0.3,
+        theta_scale: float = 1.0,
         gamma: float = 0.99,
     ):
         self.num_mld = num_mld
@@ -56,6 +57,7 @@ class WiFiEnvV2:
         self.zeta = zeta
         self.r_sld = r_sld
         self.c_idle = c_idle
+        self.theta_scale = theta_scale
 
         # 링크 설정
         self.num_links = 2  # 0=2.4GHz, 1=5GHz
@@ -488,7 +490,8 @@ class WiFiEnvV2:
         # SLD 최저기준: SLD가 공정하게 받아야 할 비율
         # 간단한 기준: SLD 수 / (SLD 수 + 2.4GHz MLD 수)
         n_mld_24 = len(self.link_agents[0])
-        theta = self.num_sld / max(self.num_sld + n_mld_24, 1)
+        base_theta = self.num_sld / max(self.num_sld + n_mld_24, 1)
+        theta = self.theta_scale * base_theta
 
         # 2.4GHz agent들의 참여/skip 통계
         link_0_aids = self.link_agents[0]
@@ -519,7 +522,8 @@ class WiFiEnvV2:
 
         avg_sld = self.round_sld_success / max(self.round_length, 1)
         n_mld_24 = len(self.link_agents[0])
-        theta = self.num_sld / max(self.num_sld + n_mld_24, 1)
+        base_theta = self.num_sld / max(self.num_sld + n_mld_24, 1)
+        theta = self.theta_scale * base_theta
 
         link_0_aids = self.link_agents[0]
         participations = []
