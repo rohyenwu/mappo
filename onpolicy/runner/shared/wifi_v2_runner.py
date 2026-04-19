@@ -1,13 +1,15 @@
 """
-WiFi v2 환경용 MAPPO Runner — 동기 TXOP 기반.
+WiFi v2 environment runner for MAPPO.
 
-설계서: docs/project_wifi_redesign_v4.md
+Design reference: docs/project_wifi_redesign_v4.md
 """
-import time
 import csv
 import os
+import time
+
 import numpy as np
 import torch
+
 from onpolicy.runner.shared.base_runner import Runner
 
 
@@ -17,27 +19,22 @@ def _t2n(x):
 
 class WiFiV2Runner(Runner):
     """
-    동기 TXOP 기반 WiFi v2 환경 학습 루프.
+    Training loop for the TXOP-synchronous WiFi v2 environment.
 
     - 1 episode = 1 round = T TXOP steps
-    - 매 TXOP마다 binary action (transmit/skip)
-    - Dense reward: r_global + r_local (환경에서 계산)
-    - Sparse reward: 라운드 끝에 SLD 보장 (환경에서 계산)
+    - Per-step binary action (transmit / skip)
+    - Dense reward is computed in the environment
+    - Sparse SLD coexistence reward is applied at round end
     """
 
     def __init__(self, config):
         super().__init__(config)
 
-        if not hasattr(self, 'log_dir'):
+        if not hasattr(self, "log_dir"):
             self.log_dir = self.save_dir
 
-        # CSV 파일
-        self.train_csv = os.path.join(str(self.log_dir), 'train_metrics.csv')
+        self.train_csv = os.path.join(str(self.log_dir), "train_metrics.csv")
         self._csv_initialized = False
-
-    # ──────────────────────────────────────────────────────────────────────────
-    # 메인 학습 루프
-    # ──────────────────────────────────────────────────────────────────────────
 
     def run(self):
         self.warmup()
@@ -49,7 +46,7 @@ class WiFiV2Runner(Runner):
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
 
-            # ── 에피소드 롤아웃 수집 ─────────────────────────────────────────
+            infos = None
             for step in range(self.episode_length):
                 values, actions, action_log_probs, rnn_states, rnn_states_critic = \
                     self.collect(step)
@@ -57,35 +54,24 @@ class WiFiV2Runner(Runner):
                 obs, share_obs, rewards, dones, infos, available_actions = \
                     self.envs.step(actions)
 
-                data = (obs, share_obs, rewards, dones, infos, available_actions,
-                        values, actions, action_log_probs,
-                        rnn_states, rnn_states_critic)
+                data = (
+                    obs,
+                    share_obs,
+                    rewards,
+                    dones,
+                    infos,
+                    available_actions,
+                    values,
+                    actions,
+                    action_log_probs,
+                    rnn_states,
+                    rnn_states_critic,
+                )
                 self.insert(data)
 
-            # ── GAE 계산 + PPO 업데이트 ──────────────────────────────────────
             self.compute()
             train_infos = self.train()
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # compute override: done 시 next_value = 0
-    # ──────────────────────────────────────────────────────────────────────────
-
-    @torch.no_grad()
-    def compute(self):
-        self.trainer.prep_rollout()
-        next_values = self.trainer.policy.get_values(
-            np.concatenate(self.buffer.share_obs[-1]),
-            np.concatenate(self.buffer.rnn_states_critic[-1]),
-            np.concatenate(self.buffer.masks[-1]),
-        )
-        next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
-
-        # done이면 masks[-1]=0 → next_value=0 (라운드 종료 후 미래 보상 없음)
-        next_values = next_values * self.buffer.masks[-1]
-
-        self.buffer.compute_returns(next_values, self.trainer.value_normalizer)
-
-            # ── 저장 / 로깅 ──────────────────────────────────────────────────
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
 
             if episode % self.save_interval == 0 or episode == episodes - 1:
@@ -101,36 +87,33 @@ class WiFiV2Runner(Runner):
                 avg_reward_neg = float(np.mean(self.buffer.rewards[self.buffer.rewards < 0])) \
                     if (self.buffer.rewards < 0).any() else 0.0
 
-                # 평균 fulfillment (마지막 step의 infos에서)
                 avg_fulfillment = 0.0
                 if infos is not None:
                     fulfillments = []
                     for env_infos in infos:
                         for info in env_infos:
-                            fulfillments.append(info.get('fulfillment', 0.0))
+                            fulfillments.append(info.get("fulfillment", 0.0))
                     avg_fulfillment = float(np.mean(fulfillments)) if fulfillments else 0.0
 
-                # action 분포
                 flat_actions = self.buffer.actions.flatten().astype(int)
                 n_total = max(len(flat_actions), 1)
                 transmit_ratio = (flat_actions == 1).sum() / n_total
 
                 print(
                     f"\n[WiFi-v2] Episode {episode}/{episodes} | "
-                    f"Steps {total_num_steps}/{self.num_env_steps} | "
-                    f"FPS {fps}"
+                    f"Steps {total_num_steps}/{self.num_env_steps} | FPS {fps}"
                 )
-                print(f"  avg reward:      {avg_reward:.4f} "
-                      f"(pos: {avg_reward_pos:.4f}, neg: {avg_reward_neg:.4f})")
+                print(
+                    f"  avg reward:      {avg_reward:.4f} "
+                    f"(pos: {avg_reward_pos:.4f}, neg: {avg_reward_neg:.4f})"
+                )
                 print(f"  transmit ratio:  {transmit_ratio:.4f}")
                 print(f"  avg fulfillment: {avg_fulfillment:.4f}")
 
                 train_infos["average_step_rewards"] = avg_reward
                 train_infos["transmit_ratio"] = transmit_ratio
                 train_infos["avg_fulfillment"] = avg_fulfillment
-                self.log_train(train_infos, total_num_steps)
 
-                # throughput & collision rate (첫 번째 env 기준)
                 env0 = self.envs.envs[0]
                 tp = env0.get_throughput()
                 for k, v in tp.items():
@@ -142,14 +125,25 @@ class WiFiV2Runner(Runner):
                     print(f"  {k}: {v:.4f}")
                     train_infos[k] = v
 
+                self.log_train(train_infos, total_num_steps)
                 self._save_csv(total_num_steps, train_infos)
 
             if episode % self.eval_interval == 0 and self.use_eval:
                 self.eval(total_num_steps)
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # warmup / collect / insert
-    # ──────────────────────────────────────────────────────────────────────────
+    @torch.no_grad()
+    def compute(self):
+        self.trainer.prep_rollout()
+        next_values = self.trainer.policy.get_values(
+            np.concatenate(self.buffer.share_obs[-1]),
+            np.concatenate(self.buffer.rnn_states_critic[-1]),
+            np.concatenate(self.buffer.masks[-1]),
+        )
+        next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
+
+        # When the round ends, the bootstrap value should be zero.
+        next_values = next_values * self.buffer.masks[-1]
+        self.buffer.compute_returns(next_values, self.trainer.value_normalizer)
 
     def warmup(self):
         obs, share_obs, available_actions = self.envs.reset()
@@ -183,26 +177,33 @@ class WiFiV2Runner(Runner):
         return values, actions, action_log_probs, rnn_states, rnn_states_critic
 
     def insert(self, data):
-        (obs, share_obs, rewards, dones, infos, available_actions,
-         values, actions, action_log_probs, rnn_states, rnn_states_critic) = data
+        (
+            obs,
+            share_obs,
+            rewards,
+            dones,
+            infos,
+            available_actions,
+            values,
+            actions,
+            action_log_probs,
+            rnn_states,
+            rnn_states_critic,
+        ) = data
 
         dones_env = np.all(dones, axis=1)
 
         rnn_states[dones_env] = np.zeros(
-            (dones_env.sum(), self.num_agents,
-             self.recurrent_N, self.hidden_size),
+            (dones_env.sum(), self.num_agents, self.recurrent_N, self.hidden_size),
             dtype=np.float32,
         )
         rnn_states_critic[dones_env] = np.zeros(
-            (dones_env.sum(), self.num_agents,
-             *self.buffer.rnn_states_critic.shape[3:]),
+            (dones_env.sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]),
             dtype=np.float32,
         )
 
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-        masks[dones_env] = np.zeros(
-            (dones_env.sum(), self.num_agents, 1), dtype=np.float32
-        )
+        masks[dones_env] = np.zeros((dones_env.sum(), self.num_agents, 1), dtype=np.float32)
 
         active_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         bad_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
@@ -211,16 +212,19 @@ class WiFiV2Runner(Runner):
             share_obs = obs
 
         self.buffer.insert(
-            share_obs, obs,
-            rnn_states, rnn_states_critic,
-            actions, action_log_probs, values,
-            rewards, masks, bad_masks, active_masks,
+            share_obs,
+            obs,
+            rnn_states,
+            rnn_states_critic,
+            actions,
+            action_log_probs,
+            values,
+            rewards,
+            masks,
+            bad_masks,
+            active_masks,
             available_actions,
         )
-
-    # ──────────────────────────────────────────────────────────────────────────
-    # 평가
-    # ──────────────────────────────────────────────────────────────────────────
 
     @torch.no_grad()
     def eval(self, total_num_steps):
@@ -230,13 +234,10 @@ class WiFiV2Runner(Runner):
         eval_obs, eval_share_obs, eval_available_actions = self.eval_envs.reset()
 
         eval_rnn_states = np.zeros(
-            (self.n_eval_rollout_threads, self.num_agents,
-             self.recurrent_N, self.hidden_size),
+            (self.n_eval_rollout_threads, self.num_agents, self.recurrent_N, self.hidden_size),
             dtype=np.float32,
         )
-        eval_masks = np.ones(
-            (self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32
-        )
+        eval_masks = np.ones((self.n_eval_rollout_threads, self.num_agents, 1), dtype=np.float32)
         eval_episode_rewards = []
 
         for _ in range(self.episode_length):
@@ -257,8 +258,7 @@ class WiFiV2Runner(Runner):
 
             eval_dones_env = np.all(eval_dones, axis=1)
             eval_rnn_states[eval_dones_env] = np.zeros(
-                (eval_dones_env.sum(), self.num_agents,
-                 self.recurrent_N, self.hidden_size),
+                (eval_dones_env.sum(), self.num_agents, self.recurrent_N, self.hidden_size),
                 dtype=np.float32,
             )
             eval_masks = np.ones(
@@ -270,19 +270,15 @@ class WiFiV2Runner(Runner):
         avg_reward = np.mean(np.sum(eval_episode_rewards, axis=0))
         print(f"  [eval] average episode reward: {avg_reward:.4f}")
 
-    # ──────────────────────────────────────────────────────────────────────────
-    # CSV 저장
-    # ──────────────────────────────────────────────────────────────────────────
-
     def _save_csv(self, total_num_steps, metrics):
-        fieldnames = ['total_num_steps'] + [
+        fieldnames = ["total_num_steps"] + [
             k for k in sorted(metrics.keys()) if isinstance(metrics[k], (int, float, np.floating))
         ]
-        row = {'total_num_steps': total_num_steps}
+        row = {"total_num_steps": total_num_steps}
         for k in fieldnames[1:]:
             row[k] = metrics[k]
 
-        with open(self.train_csv, 'a', newline='') as f:
+        with open(self.train_csv, "a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             if not self._csv_initialized:
                 writer.writeheader()
