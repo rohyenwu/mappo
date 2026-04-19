@@ -64,6 +64,83 @@ class WiFiV2Runner(Runner):
                 "episode_reward/per_agent", episode_reward_per_agent, episode_idx + 1
             )
 
+    def _log_episode_fulfillment(self, episode_idx, infos):
+        """Log per-episode final fulfillment for each agent/MLD on an episode axis."""
+        if infos is None:
+            return
+
+        # `infos` is from the last step of the episode, so fulfillment here is the
+        # final fulfillment for the just-finished round.
+        agent_fulfillments = {aid: [] for aid in range(self.num_agents)}
+        for env_infos in infos:
+            for aid, info in enumerate(env_infos):
+                agent_fulfillments[aid].append(info.get("fulfillment", 0.0))
+
+        if self.use_wandb:
+            import wandb
+
+            payload = {}
+            for aid, values in agent_fulfillments.items():
+                if values:
+                    payload[f"episode_fulfillment/agent_{aid}"] = float(np.mean(values))
+
+            num_mld = self.num_agents // 2
+            for mld_id in range(num_mld):
+                aid_24 = 2 * mld_id
+                aid_5 = 2 * mld_id + 1
+                per_mld_values = []
+
+                if agent_fulfillments[aid_24]:
+                    payload[f"episode_fulfillment/mld_{mld_id}/2_4GHz"] = float(
+                        np.mean(agent_fulfillments[aid_24])
+                    )
+                    per_mld_values.extend(agent_fulfillments[aid_24])
+                if agent_fulfillments[aid_5]:
+                    payload[f"episode_fulfillment/mld_{mld_id}/5GHz"] = float(
+                        np.mean(agent_fulfillments[aid_5])
+                    )
+                    per_mld_values.extend(agent_fulfillments[aid_5])
+                if per_mld_values:
+                    payload[f"episode_fulfillment/mld_{mld_id}/avg"] = float(
+                        np.mean(per_mld_values)
+                    )
+
+            if payload:
+                wandb.log(payload)
+        else:
+            for aid, values in agent_fulfillments.items():
+                if values:
+                    self.writter.add_scalar(
+                        f"episode_fulfillment/agent_{aid}",
+                        float(np.mean(values)),
+                        episode_idx + 1,
+                    )
+
+            num_mld = self.num_agents // 2
+            for mld_id in range(num_mld):
+                aid_24 = 2 * mld_id
+                aid_5 = 2 * mld_id + 1
+                per_mld_values = []
+
+                if agent_fulfillments[aid_24]:
+                    val_24 = float(np.mean(agent_fulfillments[aid_24]))
+                    self.writter.add_scalar(
+                        f"episode_fulfillment/mld_{mld_id}/2_4GHz", val_24, episode_idx + 1
+                    )
+                    per_mld_values.extend(agent_fulfillments[aid_24])
+                if agent_fulfillments[aid_5]:
+                    val_5 = float(np.mean(agent_fulfillments[aid_5]))
+                    self.writter.add_scalar(
+                        f"episode_fulfillment/mld_{mld_id}/5GHz", val_5, episode_idx + 1
+                    )
+                    per_mld_values.extend(agent_fulfillments[aid_5])
+                if per_mld_values:
+                    self.writter.add_scalar(
+                        f"episode_fulfillment/mld_{mld_id}/avg",
+                        float(np.mean(per_mld_values)),
+                        episode_idx + 1,
+                    )
+
     def run(self):
         self.warmup()
 
@@ -100,6 +177,7 @@ class WiFiV2Runner(Runner):
             self.compute()
             train_infos = self.train()
             self._log_episode_reward(episode)
+            self._log_episode_fulfillment(episode, infos)
 
             total_num_steps = (episode + 1) * self.episode_length * self.n_rollout_threads
 
@@ -144,6 +222,37 @@ class WiFiV2Runner(Runner):
                 train_infos["avg_fulfillment"] = avg_fulfillment
 
                 if infos is not None:
+                    # Agent-wise fulfillment so we can inspect who is starved.
+                    agent_fulfillments = {aid: [] for aid in range(self.num_agents)}
+                    for env_infos in infos:
+                        for aid, info in enumerate(env_infos):
+                            agent_fulfillments[aid].append(info.get("fulfillment", 0.0))
+
+                    for aid, values in agent_fulfillments.items():
+                        if values:
+                            train_infos[f"fulfillment/agent_{aid}"] = float(np.mean(values))
+
+                    # MLD-wise fulfillment averaged across the two links.
+                    num_mld = self.num_agents // 2
+                    for mld_id in range(num_mld):
+                        per_mld_values = []
+                        aid_24 = 2 * mld_id
+                        aid_5 = 2 * mld_id + 1
+                        if agent_fulfillments[aid_24]:
+                            train_infos[f"fulfillment/mld_{mld_id}/2_4GHz"] = float(
+                                np.mean(agent_fulfillments[aid_24])
+                            )
+                            per_mld_values.extend(agent_fulfillments[aid_24])
+                        if agent_fulfillments[aid_5]:
+                            train_infos[f"fulfillment/mld_{mld_id}/5GHz"] = float(
+                                np.mean(agent_fulfillments[aid_5])
+                            )
+                            per_mld_values.extend(agent_fulfillments[aid_5])
+                        if per_mld_values:
+                            train_infos[f"fulfillment/mld_{mld_id}/avg"] = float(
+                                np.mean(per_mld_values)
+                            )
+
                     reward_keys = [
                         "reward/global",
                         "reward/local",
