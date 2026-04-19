@@ -409,6 +409,9 @@ class WiFiRunner(Runner):
             pending_r = env.pending_reward[aid]
             if pending_r != 0.0:
                 self.buffer.rewards[prev_step, t_idx, aid, 0] = pending_r
+                env.pending_reward[aid] = 0.0
+                env.pending_result_priority[aid] = 0.0
+                env.pending_result_type[aid] = ''
 
     # ──────────────────────────────────────────────────────────────────────────
     # 평가

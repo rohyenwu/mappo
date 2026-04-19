@@ -295,9 +295,9 @@ class WiFiEnv:
             log_min = np.min(log_link_w)
             log_max = np.max(log_link_w)
             if log_max - log_min < 1e-6:
-                self.ao_priority[aid] = 0.5
+                self.ao_priority[aid] = 1.0
             else:
-                self.ao_priority[aid] = 0.1 + 0.8 * (log_wi - log_min) / (log_max - log_min)
+                self.ao_priority[aid] = 0.1 + 0.9 * (log_wi - log_min) / (log_max - log_min)
 
         self.need_decision[:] = False
 
