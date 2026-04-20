@@ -128,8 +128,12 @@ class Runner(object):
         """Save policy's actor and critic networks."""
         policy_actor = self.trainer.policy.actor
         torch.save(policy_actor.state_dict(), str(self.save_dir) + "/actor.pt")
-        policy_critic = self.trainer.policy.critic
-        torch.save(policy_critic.state_dict(), str(self.save_dir) + "/critic.pt")
+        if hasattr(self.trainer.policy, "critic_24") and hasattr(self.trainer.policy, "critic_5"):
+            torch.save(self.trainer.policy.critic_24.state_dict(), str(self.save_dir) + "/critic_24.pt")
+            torch.save(self.trainer.policy.critic_5.state_dict(), str(self.save_dir) + "/critic_5.pt")
+        else:
+            policy_critic = self.trainer.policy.critic
+            torch.save(policy_critic.state_dict(), str(self.save_dir) + "/critic.pt")
         if self.trainer._use_valuenorm:
             policy_vnorm = self.trainer.value_normalizer
             torch.save(policy_vnorm.state_dict(), str(self.save_dir) + "/vnorm.pt")
@@ -139,8 +143,19 @@ class Runner(object):
         policy_actor_state_dict = torch.load(str(self.model_dir) + '/actor.pt')
         self.policy.actor.load_state_dict(policy_actor_state_dict)
         if not self.all_args.use_render:
-            policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')
-            self.policy.critic.load_state_dict(policy_critic_state_dict)
+            critic_24_path = str(self.model_dir) + '/critic_24.pt'
+            critic_5_path = str(self.model_dir) + '/critic_5.pt'
+            if hasattr(self.policy, "critic_24") and hasattr(self.policy, "critic_5") \
+                    and os.path.exists(critic_24_path) and os.path.exists(critic_5_path):
+                self.policy.critic_24.load_state_dict(torch.load(critic_24_path))
+                self.policy.critic_5.load_state_dict(torch.load(critic_5_path))
+            else:
+                policy_critic_state_dict = torch.load(str(self.model_dir) + '/critic.pt')
+                if hasattr(self.policy, "critic_24") and hasattr(self.policy, "critic_5"):
+                    self.policy.critic_24.load_state_dict(policy_critic_state_dict)
+                    self.policy.critic_5.load_state_dict(policy_critic_state_dict)
+                else:
+                    self.policy.critic.load_state_dict(policy_critic_state_dict)
             if self.trainer._use_valuenorm:
                 policy_vnorm_state_dict = torch.load(str(self.model_dir) + '/vnorm.pt')
                 self.trainer.value_normalizer.load_state_dict(policy_vnorm_state_dict)

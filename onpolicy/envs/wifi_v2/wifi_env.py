@@ -90,9 +90,9 @@ class WiFiEnvV2:
             spaces.Box(obs_low, obs_high, dtype=np.float32)
         ] * self.num_agents
 
-        # share_obs: 모든 agent obs concat + avg_SLD_prev + prev_satisfaction + link_id
-        # = 5*num_agents + 1 + num_agents + 2
-        self.share_obs_dim = self.obs_dim * self.num_agents + 1 + self.num_agents + 2
+        # share_obs: same-link agent obs concat + avg_SLD_prev + same-link prev_satisfaction + link_id
+        # = 5*num_mld + 1 + num_mld + 2
+        self.share_obs_dim = self.obs_dim * self.num_mld + 1 + self.num_mld + 2
         self.share_observation_space = [
             spaces.Box(
                 low=np.zeros(self.share_obs_dim, dtype=np.float32),
@@ -234,16 +234,17 @@ class WiFiEnvV2:
     def _build_share_obs(self, obs):
         """Critic용 글로벌 state 생성."""
         share_obs = np.zeros((self.num_agents, self.share_obs_dim), dtype=np.float32)
-        # 모든 agent obs concat
-        all_obs_flat = obs.flatten()  # (num_agents * obs_dim,)
-
         for aid in range(self.num_agents):
             _, link_id = self.agent_to_mld_link[aid]
             link_onehot = [1.0, 0.0] if link_id == 0 else [0.0, 1.0]
+            link_aids = self.link_agents[link_id]
+            link_obs_flat = obs[link_aids].flatten()
+            link_prev_satisfaction = self.prev_satisfaction[link_aids]
+            prev_avg_sld = self.prev_avg_sld_throughput if link_id == 0 else 0.0
             share_obs[aid] = np.concatenate([
-                all_obs_flat,
-                [self.prev_avg_sld_throughput],
-                self.prev_satisfaction,
+                link_obs_flat,
+                [prev_avg_sld],
+                link_prev_satisfaction,
                 link_onehot,
             ])
         return share_obs

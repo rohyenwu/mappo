@@ -45,7 +45,7 @@ class R_MAPPO():
         assert (self._use_popart and self._use_valuenorm) == False, ("self._use_popart and self._use_valuenorm can not be set True simultaneously")
         
         if self._use_popart:
-            self.value_normalizer = self.policy.critic.v_out
+            raise NotImplementedError("PopArt is not supported with the dual-link critic setup.")
         elif self._use_valuenorm:
             self.value_normalizer = ValueNorm(1).to(self.device)
         else:
@@ -229,8 +229,10 @@ class R_MAPPO():
 
     def prep_training(self):
         self.policy.actor.train()
-        self.policy.critic.train()
+        self.policy.critic_24.train()
+        self.policy.critic_5.train()
 
     def prep_rollout(self):
         self.policy.actor.eval()
-        self.policy.critic.eval()
+        self.policy.critic_24.eval()
+        self.policy.critic_5.eval()
