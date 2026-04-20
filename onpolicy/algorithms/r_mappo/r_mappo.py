@@ -156,10 +156,11 @@ class R_MAPPO():
 
         (value_loss * self.value_loss_coef).backward()
 
+        critic_params = list(self.policy.critic_24.parameters()) + list(self.policy.critic_5.parameters())
         if self._use_max_grad_norm:
-            critic_grad_norm = nn.utils.clip_grad_norm_(self.policy.critic.parameters(), self.max_grad_norm)
+            critic_grad_norm = nn.utils.clip_grad_norm_(critic_params, self.max_grad_norm)
         else:
-            critic_grad_norm = get_gard_norm(self.policy.critic.parameters())
+            critic_grad_norm = get_gard_norm(critic_params)
 
         self.policy.critic_optimizer.step()
 

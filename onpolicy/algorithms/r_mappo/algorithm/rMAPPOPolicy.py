@@ -49,36 +49,77 @@ class R_MAPPOPolicy:
         update_linear_schedule(self.critic_optimizer, episode, episodes, self.critic_lr)
 
     def _route_critics(self, cent_obs, rnn_states_critic, masks):
-        if torch.is_tensor(cent_obs):
-            cent_obs_np = cent_obs.detach().cpu().numpy()
-        else:
-            cent_obs_np = np.asarray(cent_obs)
+        cent_obs_t = torch.as_tensor(cent_obs, dtype=torch.float32, device=self.device)
+        rnn_states_t = torch.as_tensor(rnn_states_critic, dtype=torch.float32, device=self.device)
+        masks_t = torch.as_tensor(masks, dtype=torch.float32, device=self.device)
 
-        is_link_24 = cent_obs_np[:, -2] >= cent_obs_np[:, -1]
-        idx_24 = np.where(is_link_24)[0]
-        idx_5 = np.where(~is_link_24)[0]
+        total_rows = cent_obs_t.shape[0]
+        state_rows = rnn_states_t.shape[0]
 
-        values = [None] * cent_obs_np.shape[0]
-        next_rnn_states = np.array(rnn_states_critic, copy=True)
+        # Feed-forward / rollout path: one critic state per sample row.
+        if state_rows == total_rows:
+            link_bits = cent_obs_t[:, -2:]
+            is_link_24 = link_bits[:, 0] >= link_bits[:, 1]
+            idx_24 = torch.nonzero(is_link_24, as_tuple=False).squeeze(-1)
+            idx_5 = torch.nonzero(~is_link_24, as_tuple=False).squeeze(-1)
 
-        if len(idx_24) > 0:
+            values = torch.zeros((total_rows, 1), dtype=torch.float32, device=self.device)
+            next_rnn_states = rnn_states_t.clone()
+
+            if idx_24.numel() > 0:
+                values_24, next_states_24 = self.critic_24(
+                    cent_obs_t[idx_24], rnn_states_t[idx_24], masks_t[idx_24]
+                )
+                values[idx_24] = values_24
+                next_rnn_states[idx_24] = next_states_24
+
+            if idx_5.numel() > 0:
+                values_5, next_states_5 = self.critic_5(
+                    cent_obs_t[idx_5], rnn_states_t[idx_5], masks_t[idx_5]
+                )
+                values[idx_5] = values_5
+                next_rnn_states[idx_5] = next_states_5
+
+            return values, next_rnn_states
+
+        # Recurrent training path: one critic state per sequence chunk, cent_obs is flattened L*N.
+        if total_rows % state_rows != 0:
+            raise ValueError(
+                f"Unexpected critic routing shapes: cent_obs rows={total_rows}, "
+                f"rnn_state rows={state_rows}"
+            )
+
+        seq_len = total_rows // state_rows
+        cent_obs_seq = cent_obs_t.view(seq_len, state_rows, -1)
+        masks_seq = masks_t.view(seq_len, state_rows, -1)
+
+        link_bits = cent_obs_seq[0, :, -2:]
+        is_link_24 = link_bits[:, 0] >= link_bits[:, 1]
+        idx_24 = torch.nonzero(is_link_24, as_tuple=False).squeeze(-1)
+        idx_5 = torch.nonzero(~is_link_24, as_tuple=False).squeeze(-1)
+
+        values_seq = torch.zeros((seq_len, state_rows, 1), dtype=torch.float32, device=self.device)
+        next_rnn_states = rnn_states_t.clone()
+
+        if idx_24.numel() > 0:
+            cent_obs_24 = cent_obs_seq[:, idx_24, :].reshape(seq_len * idx_24.numel(), -1)
+            masks_24 = masks_seq[:, idx_24, :].reshape(seq_len * idx_24.numel(), -1)
             values_24, next_states_24 = self.critic_24(
-                cent_obs[idx_24], rnn_states_critic[idx_24], masks[idx_24]
+                cent_obs_24, rnn_states_t[idx_24], masks_24
             )
-            for local_i, global_i in enumerate(idx_24):
-                values[global_i] = values_24[local_i]
-                next_rnn_states[global_i] = next_states_24[local_i].detach().cpu().numpy()
+            values_seq[:, idx_24, :] = values_24.view(seq_len, idx_24.numel(), -1)
+            next_rnn_states[idx_24] = next_states_24
 
-        if len(idx_5) > 0:
+        if idx_5.numel() > 0:
+            cent_obs_5 = cent_obs_seq[:, idx_5, :].reshape(seq_len * idx_5.numel(), -1)
+            masks_5 = masks_seq[:, idx_5, :].reshape(seq_len * idx_5.numel(), -1)
             values_5, next_states_5 = self.critic_5(
-                cent_obs[idx_5], rnn_states_critic[idx_5], masks[idx_5]
+                cent_obs_5, rnn_states_t[idx_5], masks_5
             )
-            for local_i, global_i in enumerate(idx_5):
-                values[global_i] = values_5[local_i]
-                next_rnn_states[global_i] = next_states_5[local_i].detach().cpu().numpy()
+            values_seq[:, idx_5, :] = values_5.view(seq_len, idx_5.numel(), -1)
+            next_rnn_states[idx_5] = next_states_5
 
-        values = torch.stack(values, dim=0)
-        return values, next_rnn_states
+        return values_seq.reshape(total_rows, -1), next_rnn_states
 
     def get_actions(self, cent_obs, obs, rnn_states_actor, rnn_states_critic, masks, available_actions=None,
                     deterministic=False):
