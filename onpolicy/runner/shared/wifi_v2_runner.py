@@ -14,6 +14,8 @@ from onpolicy.runner.shared.base_runner import Runner
 
 
 def _t2n(x):
+    if isinstance(x, np.ndarray):
+        return x
     return x.detach().cpu().numpy()
 
 
