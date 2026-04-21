@@ -36,7 +36,6 @@ def parse_args(args, parser):
     parser.add_argument("--wandb_group", type=str, default="compare_wifi_v2")
     parser.add_argument("--wandb_run_name", type=str, default=None)
     parser.add_argument("--deterministic", action="store_true", default=True)
-    parser.add_argument("--model_dir", type=str, required=True)
     return parser.parse_known_args(args)[0]
 
 
