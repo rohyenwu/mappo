@@ -30,7 +30,6 @@ def parse_args(args, parser):
     parser.add_argument("--r_sld", type=float, default=0.3)
     parser.add_argument("--c_idle", type=float, default=0.3)
     parser.add_argument("--theta_scale", type=float, default=1.0)
-    parser.add_argument("--eval_episodes", type=int, default=100)
     parser.add_argument("--wandb_project", type=str, default="WiFi_v2_eval")
     parser.add_argument("--wandb_group", type=str, default="compare_wifi_v2")
     parser.add_argument("--wandb_run_name", type=str, default=None)
