@@ -35,7 +35,19 @@ def parse_args(args, parser):
     parser.add_argument("--wandb_project", type=str, default="WiFi_v2_eval")
     parser.add_argument("--wandb_group", type=str, default="compare_wifi_v2")
     parser.add_argument("--wandb_run_name", type=str, default=None)
-    parser.add_argument("--deterministic", action="store_true", default=True)
+    parser.add_argument(
+        "--deterministic",
+        dest="deterministic",
+        action="store_true",
+        help="Use greedy actions during evaluation (default).",
+    )
+    parser.add_argument(
+        "--stochastic",
+        dest="deterministic",
+        action="store_false",
+        help="Sample actions from the policy distribution during evaluation.",
+    )
+    parser.set_defaults(deterministic=True)
     return parser.parse_known_args(args)[0]
 
 
@@ -68,6 +80,8 @@ def main(args):
         done = False
         episode_reward_total = 0.0
         last_infos = None
+        transmit_count = 0
+        action_count = 0
 
         while not done:
             actions, rnn_states = policy.act(
@@ -81,6 +95,9 @@ def main(args):
                 actions = actions.detach().cpu().numpy()
             if torch.is_tensor(rnn_states):
                 rnn_states = rnn_states.detach().cpu().numpy()
+
+            transmit_count += int(actions.sum())
+            action_count += int(actions.size)
 
             obs, share_obs, rewards, dones, infos, available_actions = env.step(actions)
             del share_obs
@@ -96,9 +113,16 @@ def main(args):
 
         metrics = compute_episode_metrics(env, last_infos, episode_reward_total)
         metrics["policy_type"] = 1.0
+        metrics["action/transmit_ratio"] = (
+            float(transmit_count) / float(action_count) if action_count > 0 else 0.0
+        )
         episode_metrics.append(metrics)
         log_episode_metrics(run, episode, metrics)
         print_episode_metrics(episode, all_args.eval_episodes, metrics)
+        print(
+            f"        action/transmit_ratio={metrics['action/transmit_ratio']:.4f} "
+            f"(deterministic={all_args.deterministic})"
+        )
 
     summary = summarize_metrics(episode_metrics)
     save_summary(run_dir, "rl_summary.json", summary)
