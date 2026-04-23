@@ -390,9 +390,9 @@ class WiFiEnvV2:
                 else:
                     r_global = urgencies.get(success_aid, 0.0)
             elif result == "success" and success_is_sld:
-                r_global = self.r_sld if link_id == 0 else 0.0
+                r_global = 0.0
             elif result == "collision":
-                r_global = -2.0
+                r_global = -1.0
             elif result == "idle":
                 r_global = -self.c_idle
 

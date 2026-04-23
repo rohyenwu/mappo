@@ -125,6 +125,8 @@ def main(args):
         device = torch.device("cpu")
         torch.set_num_threads(all_args.n_training_threads)
 
+    repo_root = Path(__file__).resolve().parents[3]
+
     # 실행 디렉터리
     base_dir = (
         Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0])
@@ -157,6 +159,16 @@ def main(args):
         run_dir = base_dir / curr_run
         os.makedirs(str(run_dir))
 
+    model_save_dir = (
+        repo_root
+        / "model"
+        / all_args.env_name
+        / all_args.algorithm_name
+        / f"{all_args.experiment_name}_seed{all_args.seed}"
+    )
+    model_save_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Model checkpoints will be saved to: {model_save_dir}")
+
     setproctitle.setproctitle(
         f"{all_args.algorithm_name}-wifi-v2-{all_args.experiment_name}"
     )
@@ -179,6 +191,7 @@ def main(args):
         "num_agents": num_agents,
         "device": device,
         "run_dir": run_dir,
+        "save_dir": model_save_dir,
     }
 
     # Runner 실행
