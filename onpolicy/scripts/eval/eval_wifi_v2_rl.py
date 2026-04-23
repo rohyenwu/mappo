@@ -36,6 +36,12 @@ def parse_args(args, parser):
     parser.add_argument("--wandb_group", type=str, default="compare_wifi_v2")
     parser.add_argument("--wandb_run_name", type=str, default=None)
     parser.add_argument(
+        "--debug_prob_steps",
+        type=int,
+        default=5,
+        help="Number of initial env steps to print action probabilities for.",
+    )
+    parser.add_argument(
         "--deterministic",
         dest="deterministic",
         action="store_true",
@@ -84,6 +90,31 @@ def main(args):
         action_count = 0
 
         while not done:
+            if episode == 0 and env.t < all_args.debug_prob_steps:
+                action_probs = policy.get_action_probs(
+                    obs,
+                    rnn_states,
+                    masks,
+                    available_actions,
+                )
+                if torch.is_tensor(action_probs):
+                    action_probs = action_probs.detach().cpu().numpy()
+
+                avg_skip = float(np.mean(action_probs[:, 0]))
+                avg_transmit = float(np.mean(action_probs[:, 1]))
+                sample_agents = min(4, env.num_agents)
+                sample_prob_text = ", ".join(
+                    [
+                        f"a{aid}: p0={action_probs[aid, 0]:.4f}, p1={action_probs[aid, 1]:.4f}"
+                        for aid in range(sample_agents)
+                    ]
+                )
+                print(
+                    f"[DebugProb] ep=1 step={env.t + 1} "
+                    f"avg_p0={avg_skip:.4f} avg_p1={avg_transmit:.4f} | "
+                    f"{sample_prob_text}"
+                )
+
             actions, rnn_states = policy.act(
                 obs,
                 rnn_states,

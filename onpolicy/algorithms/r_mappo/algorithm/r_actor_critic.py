@@ -106,6 +106,29 @@ class R_Actor(nn.Module):
 
         return action_log_probs, dist_entropy
 
+    def get_probs(self, obs, rnn_states, masks, available_actions=None):
+        """
+        Compute action probabilities from the current policy.
+        :param obs: (np.ndarray / torch.Tensor) observation inputs into network.
+        :param rnn_states: (np.ndarray / torch.Tensor) if RNN network, hidden states for RNN.
+        :param masks: (np.ndarray / torch.Tensor) mask tensor denoting if hidden states should be reinitialized.
+        :param available_actions: (np.ndarray / torch.Tensor) denotes which actions are available to agent.
+
+        :return action_probs: (torch.Tensor) action probabilities.
+        """
+        obs = check(obs).to(**self.tpdv)
+        rnn_states = check(rnn_states).to(**self.tpdv)
+        masks = check(masks).to(**self.tpdv)
+        if available_actions is not None:
+            available_actions = check(available_actions).to(**self.tpdv)
+
+        actor_features = self.base(obs)
+
+        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
+            actor_features, _ = self.rnn(actor_features, rnn_states, masks)
+
+        return self.act.get_probs(actor_features, available_actions)
+
 
 class R_Critic(nn.Module):
     """
