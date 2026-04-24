@@ -156,8 +156,13 @@ class WiFiEnvV2:
             np.random.seed(seed)
 
     def _generate_mu(self):
-        """MLD별 링크별 도착률 랜덤 생성."""
-        fixed_mu = np.linspace(0.1, 1.0, self.num_mld, dtype=np.float32)
+        """MLD? ??? ???? mu_range? ?? ??."""
+        mu_min, mu_max = self.mu_range
+        if mu_min > mu_max:
+            mu_min, mu_max = mu_max, mu_min
+        mu_min = float(np.clip(mu_min, 0.0, 1.0))
+        mu_max = float(np.clip(mu_max, 0.0, 1.0))
+        fixed_mu = np.linspace(mu_min, mu_max, self.num_mld, dtype=np.float32)
         self.mu[:, 0] = fixed_mu
         self.mu[:, 1] = fixed_mu
 

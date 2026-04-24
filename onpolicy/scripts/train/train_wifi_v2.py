@@ -76,9 +76,9 @@ def parse_args(args, parser):
                         help="SLD STA 수 (2.4GHz only)")
     parser.add_argument('--round_length', type=int, default=50,
                         help="라운드 길이 T (TXOP 수)")
-    parser.add_argument('--mu_min', type=float, default=0.2,
+    parser.add_argument('--mu_min', type=float, default=0.01,
                         help="MLD 도착률 최솟값")
-    parser.add_argument('--mu_max', type=float, default=0.8,
+    parser.add_argument('--mu_max', type=float, default=0.1,
                         help="MLD 도착률 최댓값")
     parser.add_argument('--eta', type=float, default=1.0,
                         help="SLD 미달 시 과점유 MLD 페널티 크기")
