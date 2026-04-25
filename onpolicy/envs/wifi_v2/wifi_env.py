@@ -90,7 +90,7 @@ class WiFiEnvV2:
             spaces.Box(obs_low, obs_high, dtype=np.float32)
         ] * self.num_agents
 
-        # share_obs: same-link agent obs concat + avg_SLD_prev + same-link prev_satisfaction + link_id
+        # share_obs: same-link agent obs concat + current avg_SLD + same-link current satisfaction + link_id
         # = 5*num_mld + 1 + num_mld + 2
         self.share_obs_dim = self.obs_dim * self.num_mld + 1 + self.num_mld + 2
         self.share_observation_space = [
@@ -123,8 +123,6 @@ class WiFiEnvV2:
                 'retry': 0,
             })
 
-        self.prev_avg_sld_throughput = 0.0
-        self.prev_satisfaction = np.zeros(self.num_agents, dtype=np.float32)
         self.round_sld_success = 0
 
         self.last_round_S = np.zeros((self.num_mld, 2), dtype=np.int32)
@@ -237,19 +235,20 @@ class WiFiEnvV2:
         return obs
 
     def _build_share_obs(self, obs):
-        """Critic용 글로벌 state 생성."""
+        """Critic? ??? state ??."""
         share_obs = np.zeros((self.num_agents, self.share_obs_dim), dtype=np.float32)
+        curr_avg_sld = self.round_sld_success / max(self.round_length, 1)
         for aid in range(self.num_agents):
             _, link_id = self.agent_to_mld_link[aid]
             link_onehot = [1.0, 0.0] if link_id == 0 else [0.0, 1.0]
             link_aids = self.link_agents[link_id]
             link_obs_flat = obs[link_aids].flatten()
-            link_prev_satisfaction = self.prev_satisfaction[link_aids]
-            prev_avg_sld = self.prev_avg_sld_throughput if link_id == 0 else 0.0
+            link_curr_satisfaction = obs[link_aids, 2]
+            link_avg_sld = curr_avg_sld if link_id == 0 else 0.0
             share_obs[aid] = np.concatenate([
                 link_obs_flat,
-                [prev_avg_sld],
-                link_prev_satisfaction,
+                [link_avg_sld],
+                link_curr_satisfaction,
                 link_onehot,
             ])
         return share_obs
@@ -314,13 +313,8 @@ class WiFiEnvV2:
         """
         # 이전 라운드 통계 저장 (첫 reset이 아닌 경우)
         if np.any(self.S > 0) or self.round_sld_success > 0:
-            for aid in range(self.num_agents):
-                mld_id, link_id = self.agent_to_mld_link[aid]
-                self.prev_satisfaction[aid] = self._get_fulfillment(mld_id, link_id)
-            self.prev_avg_sld_throughput = self.round_sld_success / max(self.round_length, 1)
             self.last_round_S = self.S.copy()
             self.last_round_sld_success = self.round_sld_success
-
         self._generate_mu()
         self._reset_round()
         self._generate_packets()
