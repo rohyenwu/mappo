@@ -34,6 +34,36 @@ def parse_args():
         default="WiFi Throughput Comparison",
         help="Chart title.",
     )
+    parser.add_argument(
+        "--wandb_project",
+        type=str,
+        default=None,
+        help="Optional wandb project name for uploading the comparison chart.",
+    )
+    parser.add_argument(
+        "--wandb_group",
+        type=str,
+        default=None,
+        help="Optional wandb group name.",
+    )
+    parser.add_argument(
+        "--wandb_run_name",
+        type=str,
+        default=None,
+        help="Optional wandb run name.",
+    )
+    parser.add_argument(
+        "--wandb_entity",
+        type=str,
+        default=None,
+        help="Optional wandb entity/user name.",
+    )
+    parser.add_argument(
+        "--wandb_image_key",
+        type=str,
+        default="all_barchart",
+        help="wandb key used when uploading the chart image.",
+    )
     return parser.parse_args()
 
 
@@ -127,6 +157,33 @@ def main():
     plt.close(fig)
 
     print(f"Saved throughput comparison chart to: {output_path}")
+
+    if args.wandb_project:
+        try:
+            import wandb
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "wandb is required to upload the comparison chart."
+            ) from exc
+
+        run = wandb.init(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            group=args.wandb_group,
+            name=args.wandb_run_name,
+            job_type="comparison",
+            config={
+                "title": args.title,
+                "summaries": args.summary,
+            },
+            reinit=True,
+        )
+        wandb.log({args.wandb_image_key: wandb.Image(str(output_path))})
+        run.finish()
+        print(
+            f"Uploaded throughput comparison chart to wandb "
+            f"as '{args.wandb_image_key}'."
+        )
 
 
 if __name__ == "__main__":
