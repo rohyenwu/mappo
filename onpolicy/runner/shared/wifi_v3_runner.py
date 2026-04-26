@@ -6,6 +6,8 @@ Design reference: docs/project_wifi_redesign_v4.md
 import csv
 import os
 import time
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -37,6 +39,67 @@ class WiFiV2Runner(Runner):
 
         self.train_csv = os.path.join(str(self.log_dir), "train_metrics.csv")
         self._csv_initialized = False
+
+    def _write_model_metadata(self):
+        metadata_path = Path(self.save_dir) / "MODEL_METADATA.md"
+        saved_at = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+
+        content = f"""# WiFi_v3 Model Metadata
+
+Saved at: {saved_at}
+
+## Run
+- env_name: {self.all_args.env_name}
+- algorithm_name: {self.all_args.algorithm_name}
+- experiment_name: {self.all_args.experiment_name}
+- seed: {self.all_args.seed}
+- num_mld: {self.all_args.num_mld}
+- num_sld: {self.all_args.num_sld}
+- round_length: {self.all_args.round_length}
+
+## Local Observation (Actor Input)
+- shared_load: current MLD shared demand normalized by `round_length * num_links`
+- n_sld_norm: normalized SLD count on the current link
+- shared_fulfillment: current shared fulfillment of the MLD
+- prev_action_self: this agent's previous action (`0=skip`, `1=transmit`)
+- prev_action_peer: paired same-MLD agent's previous action
+- link_onehot: link identity (`[1,0]` for 2.4 GHz, `[0,1]` for 5 GHz)
+
+## Shared Observation (Critic Input)
+- flattened local observations of all agents on the same link
+- current average SLD success ratio on 2.4 GHz (`0` on 5 GHz critic input)
+- same-link shared fulfillment vector
+- link one-hot
+
+## Reward
+### Global Reward
+- MLD success by top-urgency agent: `+1`
+- MLD success by non-top agent: `urgency(success_agent)`
+- SLD success: `0`
+- collision: `-1`
+- idle: `-c_idle`
+
+### Local Reward
+- shared queue already satisfied and transmit: `-2`
+- shared queue already satisfied and skip: `0`
+- no urgent agent on the link and transmit: `-2`
+- no urgent agent on the link and skip: `0`
+- top-urgency agent transmit: `+1`
+- top-urgency agent skip: `-(1 + urgency)`
+- non-top agent transmit: `-2`
+- non-top agent skip: `+1`
+
+### Sparse Reward
+- applied only on the final step of the round
+- only affects 2.4 GHz agents
+- if SLD throughput is below threshold: penalize above-average 2.4 GHz participation
+- otherwise: reward above-average skipping / yielding on 2.4 GHz
+"""
+        metadata_path.write_text(content, encoding="utf-8")
+
+    def save(self):
+        super().save()
+        self._write_model_metadata()
 
     def _log_episode_reward(self, episode_idx):
         """Log episode-level reward so convergence can be viewed on an episode axis."""
