@@ -448,7 +448,7 @@ class WiFiEnvV2:
                         r_local = -(1.0 + urgency)
                 else:
                     if transmitted:
-                        r_local = -2.0
+                        r_local = -1.0
                     else:
                         r_local = 1.0
 
