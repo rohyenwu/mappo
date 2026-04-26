@@ -438,9 +438,9 @@ class WiFiEnvV2:
                 remaining_demand = self.D[mld_id] - self.S[mld_id]
 
                 if remaining_demand <= 0:
-                    r_local = -1.0 if transmitted else 0.0
+                    r_local = -2.0 if transmitted else 0.0
                 elif top_aid is None:
-                    r_local = -1.0 if transmitted else 0.0
+                    r_local = -2.0 if transmitted else 0.0
                 elif aid == top_aid:
                     if transmitted:
                         r_local = 1.0
@@ -448,7 +448,7 @@ class WiFiEnvV2:
                         r_local = -(1.0 + urgency)
                 else:
                     if transmitted:
-                        r_local = -1.0
+                        r_local = -2.0
                     else:
                         r_local = 1.0
 
