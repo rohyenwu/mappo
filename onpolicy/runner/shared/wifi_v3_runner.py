@@ -56,6 +56,8 @@ Saved at: {saved_at}
 - num_mld: {self.all_args.num_mld}
 - num_sld: {self.all_args.num_sld}
 - round_length: {self.all_args.round_length}
+- rounds_per_update: {getattr(self.all_args, "rounds_per_update", 1)}
+- rollout_length: {self.all_args.episode_length}
 
 ## Local Observation (Actor Input)
 - shared_load: current MLD shared demand normalized by `round_length * num_links`
@@ -94,6 +96,11 @@ Saved at: {saved_at}
 - only affects 2.4 GHz agents
 - if SLD throughput is below threshold: penalize above-average 2.4 GHz participation
 - otherwise: reward above-average skipping / yielding on 2.4 GHz
+
+## Allocation Metric
+- expected share: each MLD's round demand divided by total round demand
+- actual share: each MLD's round success count divided by total round success
+- allocation/match: `1 - mean(abs(expected_share - actual_share))`
 """
         metadata_path.write_text(content, encoding="utf-8")
 
@@ -205,6 +212,26 @@ Saved at: {saved_at}
                         float(np.mean(per_mld_values)),
                         episode_idx + 1,
                     )
+
+    def _mean_env_metric(self, env_collection, method_name):
+        """Average a dict metric returned by each underlying environment."""
+        if env_collection is None or not hasattr(env_collection, "envs"):
+            return {}
+
+        aggregated = {}
+        count = 0
+        for env in env_collection.envs:
+            if not hasattr(env, method_name):
+                continue
+            metrics = getattr(env, method_name)()
+            for key, value in metrics.items():
+                aggregated.setdefault(key, []).append(float(value))
+            count += 1
+
+        if count == 0:
+            return {}
+
+        return {key: float(np.mean(values)) for key, values in aggregated.items()}
 
     def run(self):
         self.warmup()
@@ -355,6 +382,11 @@ Saved at: {saved_at}
                     print(f"  {k}: {v:.4f}")
                     train_infos[k] = v
 
+                alloc = self._mean_env_metric(self.envs, "get_allocation_metrics")
+                for k, v in alloc.items():
+                    print(f"  {k}: {v:.4f}")
+                    train_infos[k] = v
+
                 self.log_train(train_infos, total_num_steps)
                 self._save_csv(total_num_steps, train_infos)
 
@@ -499,6 +531,16 @@ Saved at: {saved_at}
         eval_episode_rewards = np.array(eval_episode_rewards)
         avg_reward = np.mean(np.sum(eval_episode_rewards, axis=0))
         print(f"  [eval] average episode reward: {avg_reward:.4f}")
+
+        eval_alloc = self._mean_env_metric(self.eval_envs, "get_allocation_metrics")
+        for k, v in eval_alloc.items():
+            print(f"  [eval] {k}: {v:.4f}")
+
+        if eval_alloc:
+            self.log_train(
+                {f"eval/{k}": v for k, v in eval_alloc.items()},
+                total_num_steps,
+            )
 
     def _save_csv(self, total_num_steps, metrics):
         fieldnames = ["total_num_steps"] + [

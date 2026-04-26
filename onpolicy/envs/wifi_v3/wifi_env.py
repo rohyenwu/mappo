@@ -127,6 +127,7 @@ class WiFiEnvV2:
         self.round_sld_success = 0
 
         self.last_round_S = np.zeros(self.num_mld, dtype=np.int32)
+        self.last_round_D = np.zeros(self.num_mld, dtype=np.int32)
         self.last_round_sld_success = 0
 
         self.link_successes = np.zeros((self.num_mld, 2), dtype=np.int32)
@@ -346,6 +347,7 @@ class WiFiEnvV2:
         """
         # 이전 라운드 통계 저장 (첫 reset이 아닌 경우)
         if np.any(self.S > 0) or self.round_sld_success > 0:
+            self.last_round_D = self.D.copy()
             self.last_round_S = self.S.copy()
             self.last_round_sld_success = self.round_sld_success
         self._generate_mu()
@@ -515,6 +517,7 @@ class WiFiEnvV2:
         # 라운드 끝이면 throughput/collision 캐시 저장
         # (reset()에서 _reset_round() 전에 이전 통계를 저장함)
         if done:
+            self.last_round_D = self.D.copy()
             self.last_round_S = self.S.copy()
             self.last_round_link_successes = self.link_successes.copy()
             self.last_round_link_attempts = self.link_attempts.copy()
@@ -634,4 +637,40 @@ class WiFiEnvV2:
         total_tx = self.last_round_mld_transmissions.sum()
         result['collision_rate/system_per_txop'] = total_col / (T * 2)
         result['collision_rate/system_per_tx'] = total_col / max(total_tx, 1)
+        return result
+
+    def get_allocation_metrics(self):
+        """Return round-end demand-share vs success-share allocation metrics."""
+        demand = self.last_round_D.astype(np.float32)
+        success = self.last_round_S.astype(np.float32)
+
+        total_demand = float(demand.sum())
+        total_success = float(success.sum())
+
+        if total_demand > 0.0:
+            expected_share = demand / total_demand
+        else:
+            expected_share = np.zeros(self.num_mld, dtype=np.float32)
+
+        if total_success > 0.0:
+            actual_share = success / total_success
+        else:
+            actual_share = np.zeros(self.num_mld, dtype=np.float32)
+
+        gap = actual_share - expected_share
+        abs_gap = np.abs(gap)
+
+        result = {
+            'allocation/expected_total_demand': total_demand,
+            'allocation/actual_total_success': total_success,
+            'allocation/abs_gap_mean': float(np.mean(abs_gap)),
+            'allocation/match': float(1.0 - np.mean(abs_gap)),
+        }
+
+        for mld_id in range(self.num_mld):
+            result[f'allocation/mld_{mld_id}/expected_share'] = float(expected_share[mld_id])
+            result[f'allocation/mld_{mld_id}/actual_share'] = float(actual_share[mld_id])
+            result[f'allocation/mld_{mld_id}/gap'] = float(gap[mld_id])
+            result[f'allocation/mld_{mld_id}/abs_gap'] = float(abs_gap[mld_id])
+
         return result

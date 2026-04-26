@@ -11,8 +11,8 @@ python train_wifi_v3.py \
     --num_mld 3 \
     --num_sld 3 \
     --round_length 50 \
+    --rounds_per_update 4 \
     --num_env_steps 2000000 \
-    --episode_length 50 \
     --n_rollout_threads 1 \
     --hidden_size 64 \
     --use_centralized_V \
@@ -90,6 +90,8 @@ def parse_args(args, parser):
                         help="idle TXOP에 대한 r_global penalty")
     parser.add_argument('--theta_scale', type=float, default=1.0,
                         help="Scale factor for the SLD protection threshold theta")
+    parser.add_argument('--rounds_per_update', type=int, default=1,
+                        help="Number of WiFi rounds to collect before each policy update")
     return parser.parse_known_args(args)[0]
 
 
@@ -97,8 +99,11 @@ def main(args):
     parser = get_config()
     all_args = parse_args(args, parser)
 
-    # episode_length = round_length (1 episode = 1 round)
-    all_args.episode_length = all_args.round_length
+    if all_args.rounds_per_update < 1:
+        raise ValueError("--rounds_per_update must be >= 1")
+
+    # Collect multiple WiFi rounds before each PPO update.
+    all_args.episode_length = all_args.round_length * all_args.rounds_per_update
 
     # 알고리즘 설정
     if all_args.algorithm_name == "rmappo":
