@@ -101,6 +101,47 @@ def save_summary(run_dir: Path, filename: str, summary: dict):
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
 
+def save_throughput_bar_chart(run_dir: Path, filename: str, summary: dict):
+    """Save a compact bar chart for the key throughput metrics."""
+    try:
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError:
+        print("[Eval] matplotlib is not installed; skipping throughput bar chart generation.")
+        return None
+
+    metric_keys = [
+        "throughput/mld_total",
+        "throughput/sld_total",
+        "throughput/system",
+    ]
+    labels = ["MLD", "SLD", "System"]
+    values = [float(summary.get(key, 0.0)) for key in metric_keys]
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    bars = ax.bar(labels, values, color=colors, width=0.6)
+    ax.set_ylabel("Throughput")
+    ax.set_title("WiFi v2 Evaluation Throughput")
+    ymax = max(values) if values else 0.0
+    ax.set_ylim(0.0, max(0.1, ymax * 1.2))
+    ax.grid(axis="y", alpha=0.3)
+
+    for bar, value in zip(bars, values):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            bar.get_height(),
+            f"{value:.4f}",
+            ha="center",
+            va="bottom",
+        )
+
+    fig.tight_layout()
+    out_path = run_dir / filename
+    fig.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return out_path
+
+
 def compute_episode_metrics(env, infos, episode_reward_total: float):
     metrics = {}
     metrics["episode_reward/total"] = float(episode_reward_total)
@@ -142,6 +183,14 @@ def log_episode_metrics(run, episode_idx: int, metrics: dict):
     import wandb
 
     wandb.log(metrics, step=episode_idx + 1)
+
+
+def log_wandb_image(run, key: str, image_path: Path):
+    if run is None or image_path is None:
+        return
+    import wandb
+
+    wandb.log({key: wandb.Image(str(image_path))})
 
 
 def summarize_metrics(all_episode_metrics):

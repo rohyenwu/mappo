@@ -103,7 +103,11 @@ def save_summary(run_dir: Path, filename: str, summary: dict):
 
 def save_throughput_bar_chart(run_dir: Path, filename: str, summary: dict):
     """Save a compact bar chart for the key throughput metrics."""
-    import matplotlib.pyplot as plt
+    try:
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError:
+        print("[Eval] matplotlib is not installed; skipping throughput bar chart generation.")
+        return None
 
     metric_keys = [
         "throughput/mld_total",
@@ -185,7 +189,7 @@ def log_episode_metrics(run, episode_idx: int, metrics: dict):
 
 
 def log_wandb_image(run, key: str, image_path: Path):
-    if run is None:
+    if run is None or image_path is None:
         return
     import wandb
 
