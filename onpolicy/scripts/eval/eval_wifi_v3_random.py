@@ -12,9 +12,11 @@ from onpolicy.eval.wifi_v3.utils import (
     finalize_wandb,
     init_wandb,
     log_episode_metrics,
+    log_wandb_image,
     make_wifi_env,
     print_episode_metrics,
     save_summary,
+    save_throughput_bar_chart,
     summarize_metrics,
 )
 
@@ -118,10 +120,12 @@ def main(args):
 
     summary = summarize_metrics(episode_metrics)
     save_summary(run_dir, "random_summary.json", summary)
+    chart_path = save_throughput_bar_chart(run_dir, "throughput_bar_chart.png", summary)
     print("\n[Random Summary]")
     for key in sorted(summary):
         print(f"  {key}: {summary[key]:.6f}")
 
+    log_wandb_image(run, "summary/throughput_bar_chart", chart_path)
     finalize_wandb(run)
     env.close()
 
