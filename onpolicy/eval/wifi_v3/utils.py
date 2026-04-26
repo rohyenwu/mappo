@@ -106,6 +106,8 @@ def compute_episode_metrics(env, infos, episode_reward_total: float):
     metrics["episode_reward/total"] = float(episode_reward_total)
     metrics.update(env.get_throughput())
     metrics.update(env.get_collision_rate())
+    if hasattr(env, "get_allocation_metrics"):
+        metrics.update(env.get_allocation_metrics())
 
     fulfillments = [info.get("fulfillment", 0.0) for info in infos]
     metrics["avg_fulfillment"] = float(np.mean(fulfillments)) if fulfillments else 0.0
