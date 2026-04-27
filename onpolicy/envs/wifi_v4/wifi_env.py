@@ -509,19 +509,29 @@ class WiFiEnvV4:
     def get_throughput(self):
         successes = self.last_round_link_successes
         sld_success = self.last_round_sld_success
+        round_steps = max(self.round_length, 1)
         total_slots = max(self.last_round_total_slots, 1)
 
         result = {}
         for link_id, link_name in enumerate(["2_4GHz", "5GHz"]):
             mld_success = sum(successes[mld_id, link_id] for mld_id in range(self.num_mld))
             sld_link_success = sld_success if link_id == 0 else 0
-            result[f"throughput/{link_name}/mld"] = mld_success / total_slots
-            result[f"throughput/{link_name}/sld"] = sld_link_success / total_slots
-            result[f"throughput/{link_name}/total"] = (mld_success + sld_link_success) / total_slots
+            total_success = mld_success + sld_link_success
+            result[f"throughput/{link_name}/mld"] = mld_success / round_steps
+            result[f"throughput/{link_name}/sld"] = sld_link_success / round_steps
+            result[f"throughput/{link_name}/total"] = total_success / round_steps
+            result[f"throughput_slot/{link_name}/mld"] = mld_success / total_slots
+            result[f"throughput_slot/{link_name}/sld"] = sld_link_success / total_slots
+            result[f"throughput_slot/{link_name}/total"] = total_success / total_slots
 
-        result["throughput/mld_total"] = successes.sum() / total_slots
-        result["throughput/sld_total"] = sld_success / total_slots
+        result["throughput/mld_total"] = successes.sum() / round_steps
+        result["throughput/sld_total"] = sld_success / round_steps
         result["throughput/system"] = result["throughput/mld_total"] + result["throughput/sld_total"]
+        result["throughput_slot/mld_total"] = successes.sum() / total_slots
+        result["throughput_slot/sld_total"] = sld_success / total_slots
+        result["throughput_slot/system"] = (
+            result["throughput_slot/mld_total"] + result["throughput_slot/sld_total"]
+        )
         result["throughput/slots_elapsed"] = float(self.last_round_total_slots)
         return result
 

@@ -124,7 +124,7 @@ def save_throughput_bar_chart(run_dir: Path, filename: str, summary: dict):
     fig, ax = plt.subplots(figsize=(6, 4))
     bars = ax.bar(labels, values, color=colors, width=0.6)
 
-    ax.set_ylabel("Throughput per Slot")
+    ax.set_ylabel("Throughput per Round")
     ax.set_title("WiFi v4 Evaluation Throughput")
     ymax = max(values) if values else 0.0
     ax.set_ylim(0.0, max(0.1, ymax * 1.2))
