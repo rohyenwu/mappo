@@ -92,6 +92,8 @@ def parse_args(args, parser):
                         help="Scale factor for the SLD protection threshold theta")
     parser.add_argument('--rounds_per_update', type=int, default=1,
                         help="Number of WiFi rounds to collect before each policy update")
+    parser.add_argument('--wandb_project', type=str, default="wifi_v3_1",
+                        help="Weights & Biases project name for WiFi v3 runs")
     return parser.parse_known_args(args)[0]
 
 
@@ -145,7 +147,7 @@ def main(args):
         import wandb
         run = wandb.init(
             config=all_args,
-            project=all_args.env_name,
+            project=all_args.wandb_project,
             entity=all_args.user_name,
             notes=socket.gethostname(),
             name=f"{all_args.algorithm_name}_{all_args.experiment_name}_seed{all_args.seed}",
