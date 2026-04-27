@@ -1,4 +1,4 @@
-"""Baseline MAC protocols for WiFi v3 evaluation."""
+"""Baseline MAC protocols for WiFi v4 evaluation."""
 
 from dataclasses import dataclass
 
@@ -7,7 +7,6 @@ import numpy as np
 CW_MIN = 16
 CW_MAX = 1024
 RETRY_LIMIT = 6
-DIFS_SLOTS = 2
 
 
 @dataclass
@@ -18,7 +17,7 @@ class BackoffState:
 
 
 class MLDBackoffMAC:
-    """BEB-style MAC baseline for WiFi v3 shared-demand MLD agents."""
+    """BEB-style MAC baseline driven by WiFi v4 access opportunities."""
 
     def __init__(
         self,
@@ -27,7 +26,6 @@ class MLDBackoffMAC:
         cw_min: int = CW_MIN,
         cw_max: int = CW_MAX,
         retry_limit: int = RETRY_LIMIT,
-        difs_slots: int = DIFS_SLOTS,
         rng=None,
     ):
         self.num_agents = num_agents
@@ -35,11 +33,8 @@ class MLDBackoffMAC:
         self.cw_min = cw_min
         self.cw_max = cw_max
         self.retry_limit = retry_limit
-        self.difs_slots = difs_slots
         self.rng = np.random.default_rng() if rng is None else rng
         self.states = [BackoffState() for _ in range(num_agents)]
-        self.num_links = max(link_id for _, link_id in self.agent_to_mld_link) + 1
-        self.idle_slots_by_link = np.zeros(self.num_links, dtype=np.int32)
 
     def _draw_backoff(self, cw: int) -> int:
         return int(self.rng.integers(0, cw))
@@ -49,7 +44,6 @@ class MLDBackoffMAC:
         return bool(env.D[mld_id] > env.S[mld_id])
 
     def reset_round(self, env):
-        self.idle_slots_by_link.fill(0)
         for aid, state in enumerate(self.states):
             state.cw = self.cw_min
             state.retry = 0
@@ -58,38 +52,18 @@ class MLDBackoffMAC:
     def act(self, env):
         actions = np.zeros((self.num_agents, 1), dtype=np.int32)
         pending_mask = np.zeros(self.num_agents, dtype=bool)
-
         for aid, state in enumerate(self.states):
             pending = self._pending(env, aid)
             pending_mask[aid] = pending
-            if not pending:
-                continue
-
-            if state.backoff == 0:
+            if pending and state.backoff == 0:
                 actions[aid, 0] = 1
-
         return actions, pending_mask
 
     def update(self, env, actions, infos, pending_mask):
         actions_flat = actions.reshape(-1)
-        link_results = [""] * self.num_links
-
-        for aid, info in enumerate(infos):
-            _, link_id = self.agent_to_mld_link[aid]
-            result = info.get("txop_result", "")
-            if result:
-                link_results[link_id] = result
-
-        for link_id, result in enumerate(link_results):
-            if result == "idle":
-                self.idle_slots_by_link[link_id] += 1
-            elif result:
-                self.idle_slots_by_link[link_id] = 0
-
         for aid, state in enumerate(self.states):
             pending_before = bool(pending_mask[aid])
             pending_after = self._pending(env, aid)
-            _, link_id = self.agent_to_mld_link[aid]
 
             if not pending_before:
                 state.cw = self.cw_min
@@ -97,8 +71,8 @@ class MLDBackoffMAC:
                 state.backoff = 0
                 continue
 
-            transmitted = actions_flat[aid] == 1
             result = infos[aid].get("txop_result", "")
+            transmitted = actions_flat[aid] == 1
 
             if transmitted:
                 if result == "success":
@@ -121,9 +95,5 @@ class MLDBackoffMAC:
                 state.cw = self.cw_min
                 state.retry = 0
                 state.backoff = 0
-            elif (
-                result == "idle"
-                and state.backoff > 0
-                and self.idle_slots_by_link[link_id] > self.difs_slots
-            ):
+            elif result == "idle" and state.backoff > 0:
                 state.backoff -= 1

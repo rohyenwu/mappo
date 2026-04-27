@@ -7,6 +7,7 @@ import numpy as np
 CW_MIN = 16
 CW_MAX = 1024
 RETRY_LIMIT = 6
+DIFS_SLOTS = 2
 
 
 @dataclass
@@ -26,6 +27,7 @@ class MLDBackoffMAC:
         cw_min: int = CW_MIN,
         cw_max: int = CW_MAX,
         retry_limit: int = RETRY_LIMIT,
+        difs_slots: int = DIFS_SLOTS,
         rng=None,
     ):
         self.num_agents = num_agents
@@ -33,13 +35,17 @@ class MLDBackoffMAC:
         self.cw_min = cw_min
         self.cw_max = cw_max
         self.retry_limit = retry_limit
+        self.difs_slots = difs_slots
         self.rng = np.random.default_rng() if rng is None else rng
         self.states = [BackoffState() for _ in range(num_agents)]
+        self.num_links = max(link_id for _, link_id in self.agent_to_mld_link) + 1
+        self.idle_slots_by_link = np.zeros(self.num_links, dtype=np.int32)
 
     def _draw_backoff(self, cw: int) -> int:
         return int(self.rng.integers(0, cw))
 
     def reset_round(self, env):
+        self.idle_slots_by_link.fill(0)
         for aid, state in enumerate(self.states):
             state.cw = self.cw_min
             state.retry = 0
@@ -62,8 +68,23 @@ class MLDBackoffMAC:
 
     def update(self, env, actions, infos, pending_mask):
         actions_flat = actions.reshape(-1)
+        link_results = [""] * self.num_links
+
+        for aid, info in enumerate(infos):
+            _, link_id = self.agent_to_mld_link[aid]
+            result = info.get("txop_result", "")
+            if result:
+                link_results[link_id] = result
+
+        for link_id, result in enumerate(link_results):
+            if result == "idle":
+                self.idle_slots_by_link[link_id] += 1
+            elif result:
+                self.idle_slots_by_link[link_id] = 0
+
         for aid, state in enumerate(self.states):
             pending_before = bool(pending_mask[aid])
+            _, link_id = self.agent_to_mld_link[aid]
             if not pending_before:
                 state.cw = self.cw_min
                 state.retry = 0
@@ -89,6 +110,9 @@ class MLDBackoffMAC:
                         state.cw = min(state.cw * 2, self.cw_max)
                     state.backoff = self._draw_backoff(state.cw)
             else:
-                if result == "idle" and state.backoff > 0:
+                if (
+                    result == "idle"
+                    and state.backoff > 0
+                    and self.idle_slots_by_link[link_id] > self.difs_slots
+                ):
                     state.backoff -= 1
-
