@@ -59,9 +59,6 @@ class MLDBackoffMAC:
             if not pending:
                 continue
 
-            # Match the WiFi v3 SLD timing: countdown happens at TXOP start.
-            if state.backoff > 0:
-                state.backoff -= 1
             if state.backoff == 0:
                 actions[aid, 0] = 1
 
@@ -95,6 +92,8 @@ class MLDBackoffMAC:
                     else:
                         state.cw = min(state.cw * 2, self.cw_max)
                     state.backoff = self._draw_backoff(state.cw) if pending_after else 0
+                elif result == "idle" and state.backoff > 0:
+                    state.backoff -= 1
                 elif not pending_after:
                     state.cw = self.cw_min
                     state.retry = 0
@@ -103,3 +102,5 @@ class MLDBackoffMAC:
                 state.cw = self.cw_min
                 state.retry = 0
                 state.backoff = 0
+            elif result == "idle" and state.backoff > 0:
+                state.backoff -= 1

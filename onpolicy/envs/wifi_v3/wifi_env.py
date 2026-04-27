@@ -305,10 +305,6 @@ class WiFiEnvV2:
         if link_id != 0:
             return []
 
-        for sld in self.sld_state:
-            if sld['backoff'] > 0:
-                sld['backoff'] -= 1
-
         transmitting = []
         for idx, sld in enumerate(self.sld_state):
             if sld['backoff'] == 0:
@@ -337,8 +333,9 @@ class WiFiEnvV2:
                         sld['cw'] = min(sld['cw'] * 2, SLD_CW_MAX)
                     sld['backoff'] = int(np.random.randint(0, sld['cw']))
             else:
-                # TXOP 시작 시 countdown을 진행하므로 idle 결과만으로는 backoff를 줄이지 않음.
-                pass
+                # Countdown progresses only when a TXOP passes idle.
+                if result == "idle" and sld['backoff'] > 0:
+                    sld['backoff'] -= 1
 
     def reset(self):
         """
