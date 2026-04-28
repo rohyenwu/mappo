@@ -13,9 +13,12 @@ import torch
 from onpolicy.config import get_config
 from onpolicy.envs.env_wrappers import ShareDummyVecEnv, ShareSubprocVecEnv
 from onpolicy.envs.wifi_v4.wifi_env import WiFiEnvV4
+from onpolicy.eval.wifi_v4.utils import parse_mu_profile
 
 
 def make_env(all_args, seed_offset: int):
+    mu_profile = parse_mu_profile(getattr(all_args, "mu_profile", None))
+
     def get_env_fn(rank: int):
         def init_env():
             env = WiFiEnvV4(
@@ -23,6 +26,7 @@ def make_env(all_args, seed_offset: int):
                 num_sld=all_args.num_sld,
                 round_length=all_args.round_length,
                 mu_range=(all_args.mu_min, all_args.mu_max),
+                mu_profile=mu_profile,
                 eta=all_args.eta,
                 zeta=all_args.zeta,
                 r_sld=all_args.r_sld,
@@ -65,6 +69,12 @@ def parse_args(args, parser):
     )
     parser.add_argument("--mu_min", type=float, default=0.01, help="Minimum demand rate")
     parser.add_argument("--mu_max", type=float, default=0.1, help="Maximum demand rate")
+    parser.add_argument(
+        "--mu_profile",
+        type=str,
+        default=None,
+        help="Comma-separated per-MLD demand rates. Overrides mu_min/mu_max when set.",
+    )
     parser.add_argument("--eta", type=float, default=1.0, help="SLD deficit penalty scale")
     parser.add_argument("--zeta", type=float, default=1.0, help="SLD protection bonus scale")
     parser.add_argument("--r_sld", type=float, default=0.3, help="Reserved for compatibility")

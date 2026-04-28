@@ -12,6 +12,17 @@ from onpolicy.algorithms.r_mappo.algorithm.rMAPPOPolicy import R_MAPPOPolicy
 from onpolicy.envs.wifi_v4.wifi_env import WiFiEnvV4
 
 
+def parse_mu_profile(mu_profile_text):
+    if mu_profile_text is None:
+        return None
+
+    parts = [part.strip() for part in mu_profile_text.split(",")]
+    values = [float(part) for part in parts if part]
+    if not values:
+        raise ValueError("--mu_profile was provided but no numeric values were found.")
+    return values
+
+
 def configure_algorithm_flags(args):
     if args.algorithm_name == "rmappo":
         args.use_recurrent_policy = True
@@ -26,11 +37,13 @@ def configure_algorithm_flags(args):
 
 
 def make_wifi_env(args, seed: int):
+    mu_profile = parse_mu_profile(getattr(args, "mu_profile", None))
     env = WiFiEnvV4(
         num_mld=args.num_mld,
         num_sld=args.num_sld,
         round_length=args.round_length,
         mu_range=(args.mu_min, args.mu_max),
+        mu_profile=mu_profile,
         eta=args.eta,
         zeta=args.zeta,
         r_sld=args.r_sld,

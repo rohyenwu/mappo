@@ -27,6 +27,12 @@ def parse_args(args, parser):
     parser.add_argument("--round_length", type=int, default=50)
     parser.add_argument("--mu_min", type=float, default=0.01)
     parser.add_argument("--mu_max", type=float, default=0.1)
+    parser.add_argument(
+        "--mu_profile",
+        type=str,
+        default=None,
+        help="Comma-separated per-MLD demand rates. Overrides mu_min/mu_max when set.",
+    )
     parser.add_argument("--eta", type=float, default=1.0)
     parser.add_argument("--zeta", type=float, default=1.0)
     parser.add_argument("--r_sld", type=float, default=0.3)

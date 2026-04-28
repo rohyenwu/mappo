@@ -26,6 +26,7 @@ class WiFiEnvV4:
         num_sld: int = 3,
         round_length: int = 50,
         mu_range: tuple = (0.2, 0.8),
+        mu_profile=None,
         sld_mu: float = 0.3,
         f_func: str = "fulfillment",
         g_func: str = "fulfillment",
@@ -42,6 +43,7 @@ class WiFiEnvV4:
         self.num_sld = num_sld
         self.round_length = round_length
         self.mu_range = mu_range
+        self.mu_profile = None if mu_profile is None else np.asarray(mu_profile, dtype=np.float32)
         self.eta = eta
         self.zeta = zeta
         self.r_sld = r_sld
@@ -149,6 +151,16 @@ class WiFiEnvV4:
             np.random.seed(seed)
 
     def _generate_mu(self):
+        if self.mu_profile is not None:
+            if self.mu_profile.shape != (self.num_mld,):
+                raise ValueError(
+                    f"mu_profile must have length {self.num_mld}, got shape {self.mu_profile.shape}"
+                )
+            profile = np.clip(self.mu_profile.astype(np.float32), 0.0, 1.0)
+            self.mu[:, 0] = profile
+            self.mu[:, 1] = profile
+            return
+
         mu_min, mu_max = self.mu_range
         if mu_min > mu_max:
             mu_min, mu_max = mu_max, mu_min
