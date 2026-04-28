@@ -130,7 +130,7 @@ def main():
     output_path = output_dir / args.output_name
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5), sharex=True)
-    fig.suptitle(args.title, fontsize=18)
+    fig.suptitle(args.title, fontsize=18, y=0.98)
 
     for ax, (metric_key, metric_title) in zip(axes, metric_keys):
         beb_values = [float(case["beb"].get(metric_key, 0.0)) for case in cases]
@@ -172,8 +172,15 @@ def main():
         ax.set_ylim(0.0, max(0.1, ymax * 1.25))
 
     handles, legend_labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, legend_labels, loc="upper center", ncol=2, frameon=False)
-    fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.92])
+    fig.legend(
+        handles,
+        legend_labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 0.93),
+        ncol=2,
+        frameon=False,
+    )
+    fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.83])
     fig.savefig(output_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
 
