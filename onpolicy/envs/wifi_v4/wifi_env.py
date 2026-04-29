@@ -483,10 +483,11 @@ class WiFiEnvV4:
     def _apply_sparse_reward_with_trace(self, rewards):
         sparse_rewards = np.zeros(self.num_agents, dtype=np.float32)
 
-        avg_sld = self.round_sld_success / max(self.total_slots_elapsed, 1)
         n_mld_24 = len(self.link_agents[0])
         base_theta = self.num_sld / max(self.num_sld + n_mld_24, 1)
         theta = self.theta_scale * base_theta
+        target_sld_success = theta * self.round_length
+        actual_sld_success = float(self.round_sld_success)
 
         link_0_aids = self.link_agents[0]
         participations = []
@@ -501,7 +502,7 @@ class WiFiEnvV4:
         skip_avg = np.mean(skips) if skips else 0
 
         for idx, aid in enumerate(link_0_aids):
-            if avg_sld < theta:
+            if actual_sld_success < target_sld_success:
                 penalty = self.eta * max(0, participations[idx] - p_avg)
                 rewards[aid, 0] -= penalty
                 sparse_rewards[aid] -= penalty
