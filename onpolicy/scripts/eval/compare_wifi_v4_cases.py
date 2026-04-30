@@ -114,9 +114,9 @@ def main():
 
     cases = [parse_case_spec(spec) for spec in args.case]
     metric_keys = [
-        ("throughput/mld_total", "MLD Throughput per Round"),
-        ("throughput/sld_total", "SLD Throughput per Round"),
-        ("throughput/system", "System Throughput per Round"),
+        ("throughput/mld_total", "MLD Throughput per Round", "mld_throughput", None),
+        ("throughput/sld_total", "SLD Throughput per Round", "sld_throughput", (0.0, 0.2)),
+        ("throughput/system", "System Throughput per Round", "system_throughput", None),
     ]
     method_names = ["BEB", "RL"]
     method_colors = ["#4c78a8", "#f58518"]
@@ -127,12 +127,14 @@ def main():
 
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / args.output_name
+    output_stem = Path(args.output_name).stem
+    output_suffix = Path(args.output_name).suffix or ".png"
+    output_paths = []
 
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5), sharex=True)
-    fig.suptitle(args.title, fontsize=18, y=0.98)
-
-    for ax, (metric_key, metric_title) in zip(axes, metric_keys):
+    for metric_key, metric_title, metric_slug, y_limits in metric_keys:
+        output_path = output_dir / f"{output_stem}_{metric_slug}{output_suffix}"
+        output_paths.append(output_path)
+        fig, ax = plt.subplots(figsize=(7, 5))
         beb_values = [float(case["beb"].get(metric_key, 0.0)) for case in cases]
         rl_values = [float(case["rl"].get(metric_key, 0.0)) for case in cases]
 
@@ -163,28 +165,26 @@ def main():
                     fontsize=8,
                 )
 
-        ax.set_title(metric_title)
+        ax.set_title(f"{args.title} - {metric_title}")
         ax.set_ylabel("Throughput")
         ax.set_xticks(x)
         ax.set_xticklabels(labels, rotation=20, ha="right")
         ax.grid(axis="y", alpha=0.3)
-        ymax = max(beb_values + rl_values) if (beb_values or rl_values) else 0.0
-        ax.set_ylim(0.0, max(0.1, ymax * 1.25))
+        ax.legend(frameon=False)
 
-    handles, legend_labels = axes[0].get_legend_handles_labels()
-    fig.legend(
-        handles,
-        legend_labels,
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0.93),
-        ncol=2,
-        frameon=False,
-    )
-    fig.tight_layout(rect=[0.0, 0.0, 1.0, 0.83])
-    fig.savefig(output_path, dpi=200, bbox_inches="tight")
-    plt.close(fig)
+        if y_limits is not None:
+            ax.set_ylim(*y_limits)
+        else:
+            ymax = max(beb_values + rl_values) if (beb_values or rl_values) else 0.0
+            ax.set_ylim(0.0, max(0.1, ymax * 1.25))
 
-    print(f"Saved WiFi v4 case comparison chart to: {output_path}")
+        fig.tight_layout()
+        fig.savefig(output_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+
+    print("Saved WiFi v4 case comparison charts to:")
+    for output_path in output_paths:
+        print(f"  {output_path}")
 
     if args.wandb_project:
         try:
@@ -206,7 +206,12 @@ def main():
             },
             reinit=True,
         )
-        wandb.log({args.wandb_image_key: wandb.Image(str(output_path))})
+        wandb.log(
+            {
+                f"{args.wandb_image_key}/{path.stem}": wandb.Image(str(path))
+                for path in output_paths
+            }
+        )
         run.finish()
         print(
             f"Uploaded comparison chart to wandb as '{args.wandb_image_key}'."
