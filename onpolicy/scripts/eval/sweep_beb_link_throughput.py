@@ -141,28 +141,47 @@ def save_plot(rows, output_dir):
         import matplotlib.pyplot as plt
     except ModuleNotFoundError:
         print("[BEB sweep] matplotlib is not installed; skipping plot.")
-        return None
+        return []
 
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharey=True)
-    for ax, link_name in zip(axes, ["2.4GHz", "5GHz"]):
-        link_rows = [row for row in rows if row["link"] == link_name]
-        x = [row["num_sta"] for row in link_rows]
-        y = [row["throughput_mean"] for row in link_rows]
-        yerr = [row["throughput_std"] for row in link_rows]
+    plot_specs = [
+        (
+            "throughput",
+            "Throughput (successes / TXOP)",
+            "Pure BEB Link Normalized Throughput Sweep",
+            "beb_link_throughput_sweep.png",
+        ),
+        (
+            "throughput_per_round",
+            "Throughput (successes / round)",
+            "Pure BEB Link Round Throughput Sweep",
+            "beb_link_round_throughput_sweep.png",
+        ),
+    ]
+    output_paths = []
 
-        ax.errorbar(x, y, yerr=yerr, marker="o", linewidth=1.3, capsize=2)
-        ax.set_title(link_name)
-        ax.set_xlabel("Number of STAs")
-        ax.set_ylabel("Throughput (successes / TXOP)")
-        ax.set_ylim(bottom=0.0)
-        ax.grid(alpha=0.3)
+    for metric, ylabel, title, filename in plot_specs:
+        fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharey=True)
+        for ax, link_name in zip(axes, ["2.4GHz", "5GHz"]):
+            link_rows = [row for row in rows if row["link"] == link_name]
+            x = [row["num_sta"] for row in link_rows]
+            y = [row[f"{metric}_mean"] for row in link_rows]
+            yerr = [row[f"{metric}_std"] for row in link_rows]
 
-    fig.suptitle("Pure BEB Link Throughput Sweep")
-    fig.tight_layout()
-    output_path = output_dir / "beb_link_throughput_sweep.png"
-    fig.savefig(output_path, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-    return output_path
+            ax.errorbar(x, y, yerr=yerr, marker="o", linewidth=1.3, capsize=2)
+            ax.set_title(link_name)
+            ax.set_xlabel("Number of STAs")
+            ax.set_ylabel(ylabel)
+            ax.set_ylim(bottom=0.0)
+            ax.grid(alpha=0.3)
+
+        fig.suptitle(title)
+        fig.tight_layout()
+        output_path = output_dir / filename
+        fig.savefig(output_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        output_paths.append(output_path)
+
+    return output_paths
 
 
 def parse_args():
@@ -226,7 +245,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def log_to_wandb(args, rows, csv_path, json_path, plot_path):
+def log_to_wandb(args, rows, csv_path, json_path, plot_paths):
     if not args.wandb_project:
         return
 
@@ -286,14 +305,14 @@ def log_to_wandb(args, rows, csv_path, json_path, plot_path):
         )
 
     log_payload = {"beb_link_sweep/table": table}
-    if plot_path is not None:
-        log_payload["beb_link_sweep/plot"] = wandb.Image(str(plot_path))
+    for plot_path in plot_paths:
+        log_payload[f"beb_link_sweep/{plot_path.stem}"] = wandb.Image(str(plot_path))
     wandb.log(log_payload)
 
     artifact = wandb.Artifact("beb_link_throughput_sweep", type="evaluation")
     artifact.add_file(str(csv_path))
     artifact.add_file(str(json_path))
-    if plot_path is not None:
+    for plot_path in plot_paths:
         artifact.add_file(str(plot_path))
     run.log_artifact(artifact)
     run.finish()
@@ -350,13 +369,13 @@ def main():
     print(f"\nSaved CSV: {csv_path}")
     print(f"Saved JSON: {json_path}")
 
-    plot_path = None
+    plot_paths = []
     if args.plot or args.wandb_project:
-        plot_path = save_plot(rows, output_dir)
-        if plot_path is not None:
+        plot_paths = save_plot(rows, output_dir)
+        for plot_path in plot_paths:
             print(f"Saved plot: {plot_path}")
 
-    log_to_wandb(args, rows, csv_path, json_path, plot_path)
+    log_to_wandb(args, rows, csv_path, json_path, plot_paths)
 
 
 if __name__ == "__main__":
