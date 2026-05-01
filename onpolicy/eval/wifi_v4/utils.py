@@ -126,18 +126,20 @@ def save_throughput_bar_chart(run_dir: Path, filename: str, summary: dict):
         return None
 
     metric_keys = [
+        "throughput/2_4GHz/total",
+        "throughput/5GHz/total",
         "throughput/mld_total",
         "throughput/sld_total",
         "throughput/system",
     ]
-    labels = ["MLD", "SLD", "System"]
+    labels = ["2.4GHz", "5GHz", "MLD", "SLD", "System"]
     values = [float(summary.get(key, 0.0)) for key in metric_keys]
-    colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
+    colors = ["#4c78a8", "#72b7b2", "#1f77b4", "#ff7f0e", "#2ca02c"]
 
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = plt.subplots(figsize=(8, 4))
     bars = ax.bar(labels, values, color=colors, width=0.6)
 
-    ax.set_ylabel("Throughput per Round")
+    ax.set_ylabel("Throughput (successes / TXOP)")
     ax.set_title("WiFi v4 Evaluation Throughput")
     ymax = max(values) if values else 0.0
     ax.set_ylim(0.0, max(0.1, ymax * 1.2))

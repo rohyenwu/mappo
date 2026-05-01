@@ -100,12 +100,14 @@ def main():
         ) from exc
 
     metric_keys = [
+        "throughput/2_4GHz/total",
+        "throughput/5GHz/total",
         "throughput/mld_total",
         "throughput/sld_total",
         "throughput/system",
     ]
-    metric_labels = ["MLD", "SLD", "System"]
-    metric_colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
+    metric_labels = ["2.4GHz", "5GHz", "MLD", "SLD", "System"]
+    metric_colors = ["#4c78a8", "#72b7b2", "#1f77b4", "#ff7f0e", "#2ca02c"]
 
     labels = []
     values = []
@@ -116,15 +118,16 @@ def main():
 
     values = np.asarray(values, dtype=float)
     x = np.arange(len(labels), dtype=float)
-    width = 0.24
+    width = min(0.16, 0.8 / max(len(metric_labels), 1))
 
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / args.output_name
 
     fig, ax = plt.subplots(figsize=(8, 5))
+    center_offset = (len(metric_labels) - 1) / 2.0
     for idx, (metric_label, color) in enumerate(zip(metric_labels, metric_colors)):
-        offset = (idx - 1) * width
+        offset = (idx - center_offset) * width
         bars = ax.bar(
             x + offset,
             values[:, idx],
@@ -145,7 +148,7 @@ def main():
 
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
-    ax.set_ylabel("Throughput")
+    ax.set_ylabel("Throughput (successes / TXOP)")
     ax.set_title(args.title)
     ax.grid(axis="y", alpha=0.3)
     ax.legend()

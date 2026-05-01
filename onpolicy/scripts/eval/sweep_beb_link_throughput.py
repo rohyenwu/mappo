@@ -89,6 +89,7 @@ def simulate_round(num_sta, round_length, rng):
         "collisions": collisions,
         "idle": idle,
         "attempts": attempts,
+        "throughput_per_round": successes,
         "throughput": successes / max(round_length, 1),
         "collision_rate": collisions / max(round_length, 1),
         "idle_rate": idle / max(round_length, 1),
@@ -264,6 +265,8 @@ def log_to_wandb(args, rows, csv_path, json_path, plot_path):
             "num_sta",
             "throughput_mean",
             "throughput_std",
+            "throughput_per_round_mean",
+            "throughput_per_round_std",
             "collision_rate_mean",
             "idle_rate_mean",
             "attempt_rate_mean",
@@ -275,6 +278,8 @@ def log_to_wandb(args, rows, csv_path, json_path, plot_path):
             row["num_sta"],
             row["throughput_mean"],
             row["throughput_std"],
+            row["throughput_per_round_mean"],
+            row["throughput_per_round_std"],
             row["collision_rate_mean"],
             row["idle_rate_mean"],
             row["attempt_rate_mean"],
@@ -337,6 +342,7 @@ def main():
             f"{row['link']:>6} STA={row['num_sta']:02d} | "
             f"throughput={row['throughput_mean']:.4f} "
             f"+/- {row['throughput_std']:.4f} | "
+            f"successes_round={row['throughput_per_round_mean']:.2f} | "
             f"collision={row['collision_rate_mean']:.4f} | "
             f"idle={row['idle_rate_mean']:.4f}"
         )
