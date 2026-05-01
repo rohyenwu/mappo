@@ -38,6 +38,12 @@ def parse_args():
         help="Chart title.",
     )
     parser.add_argument(
+        "--round_length",
+        type=float,
+        default=500.0,
+        help="Round length used to convert throughput from successes/TXOP to successes/round.",
+    )
+    parser.add_argument(
         "--wandb_project",
         type=str,
         default=None,
@@ -133,56 +139,65 @@ def main():
     output_suffix = Path(args.output_name).suffix or ".png"
     output_paths = []
 
+    unit_specs = [
+        ("txop", "Throughput (successes / TXOP)", 1.0, "normalized"),
+        ("round", "Throughput (successes / round)", args.round_length, "round"),
+    ]
+
     for metric_key, metric_title, metric_slug, y_limits in metric_keys:
-        output_path = output_dir / f"{output_stem}_{metric_slug}{output_suffix}"
-        output_paths.append(output_path)
-        fig, ax = plt.subplots(figsize=(7, 5))
-        beb_values = [float(case["beb"].get(metric_key, 0.0)) for case in cases]
-        rl_values = [float(case["rl"].get(metric_key, 0.0)) for case in cases]
+        base_beb_values = [float(case["beb"].get(metric_key, 0.0)) for case in cases]
+        base_rl_values = [float(case["rl"].get(metric_key, 0.0)) for case in cases]
 
-        bars_beb = ax.bar(
-            x - width / 2.0,
-            beb_values,
-            width=width,
-            label=method_names[0],
-            color=method_colors[0],
-        )
-        bars_rl = ax.bar(
-            x + width / 2.0,
-            rl_values,
-            width=width,
-            label=method_names[1],
-            color=method_colors[1],
-        )
+        for unit_suffix, y_label, scale, unit_title in unit_specs:
+            output_path = output_dir / f"{output_stem}_{metric_slug}_{unit_suffix}{output_suffix}"
+            output_paths.append(output_path)
+            fig, ax = plt.subplots(figsize=(7, 5))
+            beb_values = [value * scale for value in base_beb_values]
+            rl_values = [value * scale for value in base_rl_values]
 
-        for bars in [bars_beb, bars_rl]:
-            for bar in bars:
-                height = bar.get_height()
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2.0,
-                    height,
-                    f"{height:.3f}",
-                    ha="center",
-                    va="bottom",
-                    fontsize=8,
-                )
+            bars_beb = ax.bar(
+                x - width / 2.0,
+                beb_values,
+                width=width,
+                label=method_names[0],
+                color=method_colors[0],
+            )
+            bars_rl = ax.bar(
+                x + width / 2.0,
+                rl_values,
+                width=width,
+                label=method_names[1],
+                color=method_colors[1],
+            )
 
-        ax.set_title(f"{args.title} - {metric_title}")
-        ax.set_ylabel("Throughput (successes / TXOP)")
-        ax.set_xticks(x)
-        ax.set_xticklabels(labels, rotation=20, ha="right")
-        ax.grid(axis="y", alpha=0.3)
-        ax.legend(frameon=False)
+            for bars in [bars_beb, bars_rl]:
+                for bar in bars:
+                    height = bar.get_height()
+                    ax.text(
+                        bar.get_x() + bar.get_width() / 2.0,
+                        height,
+                        f"{height:.3f}" if scale == 1.0 else f"{height:.1f}",
+                        ha="center",
+                        va="bottom",
+                        fontsize=8,
+                    )
 
-        if y_limits is not None:
-            ax.set_ylim(*y_limits)
-        else:
-            ymax = max(beb_values + rl_values) if (beb_values or rl_values) else 0.0
-            ax.set_ylim(0.0, max(0.1, ymax * 1.25))
+            ax.set_title(f"{args.title} - {metric_title} ({unit_title})")
+            ax.set_ylabel(y_label)
+            ax.set_xticks(x)
+            ax.set_xticklabels(labels, rotation=20, ha="right")
+            ax.grid(axis="y", alpha=0.3)
+            ax.legend(frameon=False)
 
-        fig.tight_layout()
-        fig.savefig(output_path, dpi=200, bbox_inches="tight")
-        plt.close(fig)
+            if y_limits is not None:
+                ax.set_ylim(y_limits[0] * scale, y_limits[1] * scale)
+            else:
+                ymax = max(beb_values + rl_values) if (beb_values or rl_values) else 0.0
+                ax.set_ylim(0.0, max(0.1 * scale, ymax * 1.25))
+
+            fig.tight_layout()
+            fig.savefig(output_path, dpi=200, bbox_inches="tight")
+            plt.close(fig)
 
     print("Saved WiFi v4 case comparison charts to:")
     for output_path in output_paths:
@@ -205,6 +220,7 @@ def main():
             config={
                 "title": args.title,
                 "cases": args.case,
+                "round_length": args.round_length,
             },
             reinit=True,
         )
