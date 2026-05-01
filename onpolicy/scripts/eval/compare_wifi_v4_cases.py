@@ -114,9 +114,11 @@ def main():
 
     cases = [parse_case_spec(spec) for spec in args.case]
     metric_keys = [
-        ("throughput/mld_total", "MLD Throughput per Round", "mld_throughput", None),
-        ("throughput/sld_total", "SLD Throughput per Round", "sld_throughput", (0.0, 0.2)),
-        ("throughput/system", "System Throughput per Round", "system_throughput", None),
+        ("throughput/2_4GHz/total", "2.4GHz Throughput", "2_4ghz_throughput", None),
+        ("throughput/5GHz/total", "5GHz Throughput", "5ghz_throughput", None),
+        ("throughput/mld_total", "MLD Throughput", "mld_throughput", None),
+        ("throughput/sld_total", "SLD Throughput", "sld_throughput", (0.0, 0.2)),
+        ("throughput/system", "System Throughput", "system_throughput", None),
     ]
     method_names = ["BEB", "RL"]
     method_colors = ["#4c78a8", "#f58518"]
@@ -166,7 +168,7 @@ def main():
                 )
 
         ax.set_title(f"{args.title} - {metric_title}")
-        ax.set_ylabel("Throughput")
+        ax.set_ylabel("Throughput (successes / TXOP)")
         ax.set_xticks(x)
         ax.set_xticklabels(labels, rotation=20, ha="right")
         ax.grid(axis="y", alpha=0.3)
