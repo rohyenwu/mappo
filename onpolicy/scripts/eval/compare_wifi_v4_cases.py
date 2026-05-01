@@ -117,7 +117,7 @@ def main():
         ("throughput/2_4GHz/total", "2.4GHz Throughput", "2_4ghz_throughput", None),
         ("throughput/5GHz/total", "5GHz Throughput", "5ghz_throughput", None),
         ("throughput/mld_total", "MLD Throughput", "mld_throughput", None),
-        ("throughput/sld_total", "SLD Throughput", "sld_throughput", (0.0, 0.2)),
+        ("throughput/sld_total", "SLD Throughput", "sld_throughput", (0.0, 0.8)),
         ("throughput/system", "System Throughput", "system_throughput", None),
     ]
     method_names = ["BEB", "RL"]
