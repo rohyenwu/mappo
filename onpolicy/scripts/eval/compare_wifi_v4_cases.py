@@ -73,6 +73,11 @@ def parse_args():
         default="case_comparison",
         help="wandb key used when uploading the chart image.",
     )
+    parser.add_argument(
+        "--hide_bar_labels",
+        action="store_true",
+        help="Do not draw numeric value labels above bars.",
+    )
     return parser.parse_args()
 
 
@@ -170,17 +175,18 @@ def main():
                 color=method_colors[1],
             )
 
-            for bars in [bars_beb, bars_rl]:
-                for bar in bars:
-                    height = bar.get_height()
-                    ax.text(
-                        bar.get_x() + bar.get_width() / 2.0,
-                        height,
-                        f"{height:.3f}" if scale == 1.0 else f"{height:.1f}",
-                        ha="center",
-                        va="bottom",
-                        fontsize=8,
-                    )
+            if not args.hide_bar_labels:
+                for bars in [bars_beb, bars_rl]:
+                    for bar in bars:
+                        height = bar.get_height()
+                        ax.text(
+                            bar.get_x() + bar.get_width() / 2.0,
+                            height,
+                            f"{height:.3f}" if scale == 1.0 else f"{height:.1f}",
+                            ha="center",
+                            va="bottom",
+                            fontsize=8,
+                        )
 
             ax.set_title(f"{args.title} - {metric_title} ({unit_title})")
             ax.set_ylabel(y_label)
