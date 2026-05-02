@@ -335,6 +335,18 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
             remote.send(env.get_throughput())
         elif cmd == 'get_collision_rate':
             remote.send(env.get_collision_rate())
+        elif cmd == 'get_active_masks':
+            if hasattr(env, 'get_active_masks'):
+                remote.send(env.get_active_masks())
+            else:
+                remote.send(None)
+        elif cmd == 'set_scenario_by_episode':
+            if hasattr(env, 'set_scenario_by_episode'):
+                episode_idx, interval_episodes = data
+                env.set_scenario_by_episode(episode_idx, interval_episodes)
+                remote.send(env.reset())
+            else:
+                remote.send(None)
         elif cmd == 'render_vulnerability':
             fr = env.render_vulnerability(data)
             remote.send((fr))
@@ -396,6 +408,29 @@ class ShareSubprocVecEnv(ShareVecEnv):
         """첫 번째 env의 collision_rate 반환 (WiFi 전용)."""
         self.remotes[0].send(('get_collision_rate', None))
         return self.remotes[0].recv()
+
+    def get_active_masks(self):
+        results = []
+        for remote in self.remotes:
+            remote.send(('get_active_masks', None))
+        for remote in self.remotes:
+            result = remote.recv()
+            if result is None:
+                return None
+            results.append(result)
+        return np.stack(results)
+
+    def set_scenario_by_episode(self, episode_idx, interval_episodes):
+        results = []
+        for remote in self.remotes:
+            remote.send(('set_scenario_by_episode', (episode_idx, interval_episodes)))
+        for remote in self.remotes:
+            result = remote.recv()
+            if result is None:
+                return None
+            results.append(result)
+        obs, share_obs, available_actions = zip(*results)
+        return np.stack(obs), np.stack(share_obs), np.stack(available_actions)
 
     def close(self):
         if self.closed:
@@ -760,6 +795,21 @@ class ShareDummyVecEnv(ShareVecEnv):
     def get_collision_rate(self):
         """첫 번째 env의 collision_rate 반환 (WiFi 전용)."""
         return self.envs[0].get_collision_rate()
+
+    def get_active_masks(self):
+        if not hasattr(self.envs[0], "get_active_masks"):
+            return None
+        return np.stack([env.get_active_masks() for env in self.envs])
+
+    def set_scenario_by_episode(self, episode_idx, interval_episodes):
+        if not hasattr(self.envs[0], "set_scenario_by_episode"):
+            return None
+        results = []
+        for env in self.envs:
+            env.set_scenario_by_episode(episode_idx, interval_episodes)
+            results.append(env.reset())
+        obs, share_obs, available_actions = map(np.array, zip(*results))
+        return obs, share_obs, available_actions
 
     def get_bg_obs(self):
         """각 env의 배경 에이전트 obs 반환 (WiFi 전용)."""

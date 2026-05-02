@@ -240,6 +240,8 @@ Saved at: {saved_at}
         episodes = int(self.num_env_steps) // self.episode_length // self.n_rollout_threads
 
         for episode in range(episodes):
+            self._maybe_update_scenario(episode)
+
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
 
@@ -416,6 +418,36 @@ Saved at: {saved_at}
         self.buffer.share_obs[0] = share_obs.copy()
         self.buffer.obs[0] = obs.copy()
         self.buffer.available_actions[0] = available_actions.copy()
+        self.buffer.active_masks[0] = self._get_env_active_masks()
+
+    def _get_env_active_masks(self):
+        if hasattr(self.envs, "get_active_masks"):
+            active_masks = self.envs.get_active_masks()
+            if active_masks is not None:
+                return active_masks.copy()
+        return np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+
+    def _set_buffer_start(self, obs, share_obs, available_actions):
+        if not self.use_centralized_V:
+            share_obs = obs
+        self.buffer.share_obs[0] = share_obs.copy()
+        self.buffer.obs[0] = obs.copy()
+        self.buffer.available_actions[0] = available_actions.copy()
+        self.buffer.active_masks[0] = self._get_env_active_masks()
+        self.buffer.rnn_states[0] = np.zeros_like(self.buffer.rnn_states[0])
+        self.buffer.rnn_states_critic[0] = np.zeros_like(self.buffer.rnn_states_critic[0])
+
+    def _maybe_update_scenario(self, episode):
+        if not hasattr(self.envs, "set_scenario_by_episode"):
+            return
+        interval = getattr(self.all_args, "scenario_interval_episodes", None)
+        if interval is None:
+            return
+        result = self.envs.set_scenario_by_episode(episode, interval)
+        if result is None:
+            return
+        obs, share_obs, available_actions = result
+        self._set_buffer_start(obs, share_obs, available_actions)
 
     @torch.no_grad()
     def collect(self, step):
@@ -467,7 +499,7 @@ Saved at: {saved_at}
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones_env] = np.zeros((dones_env.sum(), self.num_agents, 1), dtype=np.float32)
 
-        active_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+        active_masks = self._get_env_active_masks()
         bad_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
         if not self.use_centralized_V:
