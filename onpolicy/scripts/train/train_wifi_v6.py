@@ -137,6 +137,24 @@ def parse_args(args, parser):
         default="wifi_v6",
         help="Weights & Biases project name for WiFi v6 runs",
     )
+    parser.add_argument(
+        "--wandb_entity",
+        type=str,
+        default=None,
+        help="Weights & Biases entity. Overrides --user_name when set.",
+    )
+    parser.add_argument(
+        "--wandb_group",
+        type=str,
+        default=None,
+        help="Optional Weights & Biases group name.",
+    )
+    parser.add_argument(
+        "--wandb_run_name",
+        type=str,
+        default=None,
+        help="Optional Weights & Biases run name.",
+    )
     return parser.parse_known_args(args)[0]
 
 
@@ -203,12 +221,18 @@ def main(args):
     if all_args.use_wandb:
         import wandb
 
+        wandb_entity = all_args.wandb_entity or all_args.user_name
+        wandb_run_name = (
+            all_args.wandb_run_name
+            or f"{all_args.algorithm_name}_{all_args.experiment_name}_seed{all_args.seed}"
+        )
         run = wandb.init(
             config=all_args,
             project=all_args.wandb_project,
-            entity=all_args.user_name,
+            entity=wandb_entity,
+            group=all_args.wandb_group,
             notes=socket.gethostname(),
-            name=f"{all_args.algorithm_name}_{all_args.experiment_name}_seed{all_args.seed}",
+            name=wandb_run_name,
             dir=str(base_dir),
             job_type="training",
             reinit=True,
