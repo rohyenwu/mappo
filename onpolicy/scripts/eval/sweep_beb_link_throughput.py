@@ -211,6 +211,43 @@ def save_plot(rows, output_dir, hide_error_bars=False, separate_link_plots=False
                 plt.close(fig)
                 output_paths.append(separate_path)
 
+        system_rows = {}
+        for row in rows:
+            num_sta = row["num_sta"]
+            system_rows.setdefault(num_sta, {})[row["link"]] = row
+
+        x = []
+        y = []
+        yerr = []
+        for num_sta in sorted(system_rows):
+            link_pair = system_rows[num_sta]
+            if "2.4GHz" not in link_pair or "5GHz" not in link_pair:
+                continue
+            row_24 = link_pair["2.4GHz"]
+            row_5 = link_pair["5GHz"]
+            x.append(num_sta)
+            y.append(row_24[f"{metric}_mean"] + row_5[f"{metric}_mean"])
+            # Independent Monte Carlo seeds are used per link, so variances add.
+            yerr.append(
+                float(
+                    np.sqrt(row_24[f"{metric}_std"] ** 2 + row_5[f"{metric}_std"] ** 2)
+                )
+            )
+
+        fig, ax = plt.subplots(figsize=(6, 4.5))
+        _plot_curve(ax, x, y, yerr, hide_error_bars)
+        ax.set_title(f"{title} - System")
+        ax.set_xlabel("Number of STAs per link")
+        ax.set_ylabel(ylabel.replace("Throughput", "System throughput"))
+        ax.set_ylim(bottom=0.0)
+        ax.grid(alpha=0.3)
+        fig.tight_layout()
+
+        system_path = output_dir / f"{Path(filename).stem}_system{Path(filename).suffix}"
+        fig.savefig(system_path, dpi=200, bbox_inches="tight")
+        plt.close(fig)
+        output_paths.append(system_path)
+
     return output_paths
 
 
