@@ -136,7 +136,14 @@ def sweep_link(link_name, min_sta, max_sta, round_length, episodes, seed):
     return rows
 
 
-def save_plot(rows, output_dir):
+def _plot_curve(ax, x, y, yerr, hide_error_bars):
+    if hide_error_bars:
+        ax.plot(x, y, marker="o", linewidth=1.3)
+    else:
+        ax.errorbar(x, y, yerr=yerr, marker="o", linewidth=1.3, capsize=2)
+
+
+def save_plot(rows, output_dir, hide_error_bars=False, separate_link_plots=False):
     try:
         import matplotlib.pyplot as plt
     except ModuleNotFoundError:
@@ -160,14 +167,15 @@ def save_plot(rows, output_dir):
     output_paths = []
 
     for metric, ylabel, title, filename in plot_specs:
+        link_names = ["2.4GHz", "5GHz"]
         fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), sharey=True)
-        for ax, link_name in zip(axes, ["2.4GHz", "5GHz"]):
+        for ax, link_name in zip(axes, link_names):
             link_rows = [row for row in rows if row["link"] == link_name]
             x = [row["num_sta"] for row in link_rows]
             y = [row[f"{metric}_mean"] for row in link_rows]
             yerr = [row[f"{metric}_std"] for row in link_rows]
 
-            ax.errorbar(x, y, yerr=yerr, marker="o", linewidth=1.3, capsize=2)
+            _plot_curve(ax, x, y, yerr, hide_error_bars)
             ax.set_title(link_name)
             ax.set_xlabel("Number of STAs")
             ax.set_ylabel(ylabel)
@@ -180,6 +188,28 @@ def save_plot(rows, output_dir):
         fig.savefig(output_path, dpi=200, bbox_inches="tight")
         plt.close(fig)
         output_paths.append(output_path)
+
+        if separate_link_plots:
+            for link_name in link_names:
+                link_rows = [row for row in rows if row["link"] == link_name]
+                x = [row["num_sta"] for row in link_rows]
+                y = [row[f"{metric}_mean"] for row in link_rows]
+                yerr = [row[f"{metric}_std"] for row in link_rows]
+
+                fig, ax = plt.subplots(figsize=(6, 4.5))
+                _plot_curve(ax, x, y, yerr, hide_error_bars)
+                ax.set_title(f"{title} - {link_name}")
+                ax.set_xlabel("Number of STAs")
+                ax.set_ylabel(ylabel)
+                ax.set_ylim(bottom=0.0)
+                ax.grid(alpha=0.3)
+                fig.tight_layout()
+
+                link_slug = link_name.lower().replace(".", "_").replace("ghz", "ghz")
+                separate_path = output_dir / f"{Path(filename).stem}_{link_slug}{Path(filename).suffix}"
+                fig.savefig(separate_path, dpi=200, bbox_inches="tight")
+                plt.close(fig)
+                output_paths.append(separate_path)
 
     return output_paths
 
@@ -232,6 +262,16 @@ def parse_args():
         default="mappo/onpolicy/scripts/results/WiFi/wifi_v3/beb_link_sweep",
     )
     parser.add_argument("--plot", action="store_true")
+    parser.add_argument(
+        "--hide_error_bars",
+        action="store_true",
+        help="Plot mean curves without standard-deviation error bars.",
+    )
+    parser.add_argument(
+        "--separate_link_plots",
+        action="store_true",
+        help="Also save separate image files for 2.4 GHz and 5 GHz plots.",
+    )
     parser.add_argument("--wandb_project", type=str, default=None)
     parser.add_argument("--wandb_group", type=str, default=None)
     parser.add_argument("--wandb_run_name", type=str, default="beb_link_throughput_sweep")
@@ -371,7 +411,12 @@ def main():
 
     plot_paths = []
     if args.plot or args.wandb_project:
-        plot_paths = save_plot(rows, output_dir)
+        plot_paths = save_plot(
+            rows,
+            output_dir,
+            hide_error_bars=args.hide_error_bars,
+            separate_link_plots=args.separate_link_plots,
+        )
         for plot_path in plot_paths:
             print(f"Saved plot: {plot_path}")
 
