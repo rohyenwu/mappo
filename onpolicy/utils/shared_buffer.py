@@ -205,10 +205,29 @@ class SharedReplayBuffer(object):
         else:
             if self._use_gae:
                 self.value_preds[-1] = next_value
+                if np.all(self.active_masks[:-1] > 0.5):
+                    gae = 0
+                    for step in reversed(range(self.rewards.shape[0])):
+                        if self._use_popart or self._use_valuenorm:
+                            delta = self.rewards[step] + self.gamma * value_normalizer.denormalize(
+                                self.value_preds[step + 1]) * self.masks[step + 1] \
+                                    - value_normalizer.denormalize(self.value_preds[step])
+                            gae = delta + self.gamma * self.gae_lambda * self.masks[step + 1] * gae
+                            self.returns[step] = gae + value_normalizer.denormalize(self.value_preds[step])
+                        else:
+                            delta = self.rewards[step] + self.gamma * self.value_preds[step + 1] * self.masks[step + 1] - \
+                                    self.value_preds[step]
+                            gae = delta + self.gamma * self.gae_lambda * self.masks[step + 1] * gae
+                            self.returns[step] = gae + self.value_preds[step]
+                    return
                 self.returns[:] = 0.0  # inactive step의 returns를 0으로 초기화
                 episode_length = self.rewards.shape[0]
                 n_threads = self.rewards.shape[1]
                 num_agents = self.rewards.shape[2]
+                if self._use_popart or self._use_valuenorm:
+                    denorm_value_preds = value_normalizer.denormalize(self.value_preds)
+                else:
+                    denorm_value_preds = self.value_preds
 
                 # per-agent active-only GAE
                 for t_idx in range(n_threads):
@@ -225,11 +244,7 @@ class SharedReplayBuffer(object):
                         # active step들만으로 GAE 계산
                         # 마지막 active step 이후의 next_value 결정
                         last_active = active_steps[-1]
-                        if self._use_popart or self._use_valuenorm:
-                            next_v = value_normalizer.denormalize(
-                                self.value_preds[last_active + 1, t_idx, a_idx])
-                        else:
-                            next_v = self.value_preds[last_active + 1, t_idx, a_idx]
+                        next_v = denorm_value_preds[last_active + 1, t_idx, a_idx]
 
                         gae = np.zeros_like(self.returns[0, t_idx, a_idx])
 
@@ -237,21 +252,13 @@ class SharedReplayBuffer(object):
                             step = active_steps[i]
                             r = self.rewards[step, t_idx, a_idx]
 
-                            if self._use_popart or self._use_valuenorm:
-                                v_curr = value_normalizer.denormalize(
-                                    self.value_preds[step, t_idx, a_idx])
-                            else:
-                                v_curr = self.value_preds[step, t_idx, a_idx]
+                            v_curr = denorm_value_preds[step, t_idx, a_idx]
 
                             if i == len(active_steps) - 1:
                                 v_next = next_v
                             else:
                                 next_step = active_steps[i + 1]
-                                if self._use_popart or self._use_valuenorm:
-                                    v_next = value_normalizer.denormalize(
-                                        self.value_preds[next_step, t_idx, a_idx])
-                                else:
-                                    v_next = self.value_preds[next_step, t_idx, a_idx]
+                                v_next = denorm_value_preds[next_step, t_idx, a_idx]
 
                             delta = r + self.gamma * v_next - v_curr
                             gae = delta + self.gamma * self.gae_lambda * gae
