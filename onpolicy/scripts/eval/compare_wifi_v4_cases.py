@@ -78,6 +78,11 @@ def parse_args():
         action="store_true",
         help="Do not draw numeric value labels above bars.",
     )
+    parser.add_argument(
+        "--include_packet_throughput",
+        action="store_true",
+        help="Also plot throughput metrics based on processed packet counts.",
+    )
     return parser.parse_args()
 
 
@@ -131,6 +136,41 @@ def main():
         ("throughput/sld_total", "SLD Throughput", "sld_throughput", (0.0, 0.8)),
         ("throughput/system", "System Throughput", "system_throughput", None),
     ]
+    if args.include_packet_throughput:
+        metric_keys.extend(
+            [
+                (
+                    "packet_throughput/2_4GHz/total",
+                    "2.4GHz Packet Throughput",
+                    "2_4ghz_packet_throughput",
+                    None,
+                ),
+                (
+                    "packet_throughput/5GHz/total",
+                    "5GHz Packet Throughput",
+                    "5ghz_packet_throughput",
+                    None,
+                ),
+                (
+                    "packet_throughput/mld_total",
+                    "MLD Packet Throughput",
+                    "mld_packet_throughput",
+                    None,
+                ),
+                (
+                    "packet_throughput/sld_total",
+                    "SLD Packet Throughput",
+                    "sld_packet_throughput",
+                    (0.0, 0.8),
+                ),
+                (
+                    "packet_throughput/system",
+                    "System Packet Throughput",
+                    "system_packet_throughput",
+                    None,
+                ),
+            ]
+        )
     method_names = ["BEB", "RL"]
     method_colors = ["#4c78a8", "#f58518"]
 

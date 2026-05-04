@@ -113,6 +113,8 @@ class WiFiEnvV5:
 
         self.link_successes = np.zeros((self.num_mld, 2), dtype=np.int32)
         self.last_round_link_successes = np.zeros((self.num_mld, 2), dtype=np.int32)
+        self.link_packet_successes = np.zeros((self.num_mld, 2), dtype=np.int32)
+        self.last_round_link_packet_successes = np.zeros((self.num_mld, 2), dtype=np.int32)
         self.link_attempts = np.zeros((self.num_mld, 2), dtype=np.int32)
         self.last_round_link_attempts = np.zeros((self.num_mld, 2), dtype=np.int32)
         self.prev_actions = np.zeros(self.num_agents, dtype=np.int32)
@@ -133,6 +135,7 @@ class WiFiEnvV5:
         self.P[:] = 0
         self.D[:] = 0
         self.link_successes[:] = 0
+        self.link_packet_successes[:] = 0
         self.link_attempts[:] = 0
         self.prev_actions[:] = 0
         self.round_sld_success = 0
@@ -328,6 +331,7 @@ class WiFiEnvV5:
             self.last_round_D = self.D.copy()
             self.last_round_S = self.S.copy()
             self.last_round_link_successes = self.link_successes.copy()
+            self.last_round_link_packet_successes = self.link_packet_successes.copy()
             self.last_round_link_attempts = self.link_attempts.copy()
             self.last_round_sld_success = self.round_sld_success
             self.last_round_collisions = self.round_collisions.copy()
@@ -415,8 +419,10 @@ class WiFiEnvV5:
                 mld_id, success_link_id = self.agent_to_mld_link[success_aid]
                 if self.D[mld_id] > self.S[mld_id]:
                     packet_gain = 2 if success_link_id == 1 else 1
-                    self.S[mld_id] += min(packet_gain, self.D[mld_id] - self.S[mld_id])
+                    served_packets = min(packet_gain, self.D[mld_id] - self.S[mld_id])
+                    self.S[mld_id] += served_packets
                     self.link_successes[mld_id, link_id] += 1
+                    self.link_packet_successes[mld_id, link_id] += served_packets
 
             for aid in mld_txers:
                 mld_id, _ = self.agent_to_mld_link[aid]
@@ -473,6 +479,7 @@ class WiFiEnvV5:
             self.last_round_D = self.D.copy()
             self.last_round_S = self.S.copy()
             self.last_round_link_successes = self.link_successes.copy()
+            self.last_round_link_packet_successes = self.link_packet_successes.copy()
             self.last_round_link_attempts = self.link_attempts.copy()
             self.last_round_sld_success = self.round_sld_success
             self.last_round_collisions = self.round_collisions.copy()
@@ -522,6 +529,7 @@ class WiFiEnvV5:
 
     def get_throughput(self):
         successes = self.last_round_link_successes
+        packet_successes = self.last_round_link_packet_successes
         sld_success = self.last_round_sld_success
         round_steps = max(self.round_length, 1)
         total_slots = max(self.last_round_total_slots, 1)
@@ -538,6 +546,15 @@ class WiFiEnvV5:
             result[f"throughput_slot/{link_name}/sld"] = sld_link_success / total_slots
             result[f"throughput_slot/{link_name}/total"] = total_success / total_slots
 
+            mld_packets = sum(packet_successes[mld_id, link_id] for mld_id in range(self.num_mld))
+            total_packets = mld_packets + sld_link_success
+            result[f"packet_throughput/{link_name}/mld"] = mld_packets / round_steps
+            result[f"packet_throughput/{link_name}/sld"] = sld_link_success / round_steps
+            result[f"packet_throughput/{link_name}/total"] = total_packets / round_steps
+            result[f"packet_throughput_slot/{link_name}/mld"] = mld_packets / total_slots
+            result[f"packet_throughput_slot/{link_name}/sld"] = sld_link_success / total_slots
+            result[f"packet_throughput_slot/{link_name}/total"] = total_packets / total_slots
+
         result["throughput/mld_total"] = successes.sum() / round_steps
         result["throughput/sld_total"] = sld_success / round_steps
         result["throughput/system"] = result["throughput/mld_total"] + result["throughput/sld_total"]
@@ -545,6 +562,17 @@ class WiFiEnvV5:
         result["throughput_slot/sld_total"] = sld_success / total_slots
         result["throughput_slot/system"] = (
             result["throughput_slot/mld_total"] + result["throughput_slot/sld_total"]
+        )
+        result["packet_throughput/mld_total"] = packet_successes.sum() / round_steps
+        result["packet_throughput/sld_total"] = sld_success / round_steps
+        result["packet_throughput/system"] = (
+            result["packet_throughput/mld_total"] + result["packet_throughput/sld_total"]
+        )
+        result["packet_throughput_slot/mld_total"] = packet_successes.sum() / total_slots
+        result["packet_throughput_slot/sld_total"] = sld_success / total_slots
+        result["packet_throughput_slot/system"] = (
+            result["packet_throughput_slot/mld_total"]
+            + result["packet_throughput_slot/sld_total"]
         )
         result["throughput/slots_elapsed"] = float(self.last_round_total_slots)
         return result
