@@ -93,11 +93,12 @@ def init_wandb(args, run_dir: Path, eval_name: str):
     run_name = getattr(args, "wandb_run_name", None) or (
         f"{eval_name}_{args.experiment_name}_seed{args.seed}"
     )
+    entity = getattr(args, "wandb_entity", None) or args.user_name
 
     return wandb.init(
         config=vars(args),
         project=getattr(args, "wandb_project", "WiFi_v5_eval"),
-        entity=args.user_name,
+        entity=entity,
         notes=socket.gethostname(),
         name=run_name,
         group=group_name,

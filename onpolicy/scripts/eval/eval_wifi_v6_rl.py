@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-"""Evaluate a trained WiFi v5 RL policy checkpoint."""
+"""Evaluate a trained WiFi v6 RL policy checkpoint on one active scenario."""
 
 import sys
+
 import numpy as np
 import torch
 
 from onpolicy.config import get_config
+from onpolicy.envs.wifi_v6.wifi_env import WiFiEnvV6
 from onpolicy.eval.wifi_v5.utils import (
     build_eval_run_dir,
     compute_episode_metrics,
@@ -14,7 +16,7 @@ from onpolicy.eval.wifi_v5.utils import (
     load_policy,
     log_episode_metrics,
     log_wandb_image,
-    make_wifi_env,
+    parse_mu_profile,
     print_episode_metrics,
     save_summary,
     save_throughput_bar_chart,
@@ -23,12 +25,47 @@ from onpolicy.eval.wifi_v5.utils import (
 )
 
 
+def make_wifi_env(args, seed: int):
+    mu_profile = parse_mu_profile(getattr(args, "mu_profile", None))
+    env = WiFiEnvV6(
+        max_mld=args.max_mld,
+        max_sld=args.max_sld,
+        scenario_profile=[(args.num_mld, args.num_sld)],
+        round_length=args.round_length,
+        mu_range=(args.mu_min, args.mu_max),
+        mu_profile=mu_profile,
+        eta=args.eta,
+        zeta=args.zeta,
+        r_sld=args.r_sld,
+        c_idle=args.c_idle,
+        theta_scale=args.theta_scale,
+    )
+    env.seed(seed)
+    return env
+
+
+def compute_v6_episode_metrics(env, infos, episode_reward_total: float):
+    metrics = compute_episode_metrics(env, infos, episode_reward_total)
+    active_infos = [info for info in infos if info.get("active", True)]
+    active_fulfillments = [info.get("fulfillment", 0.0) for info in active_infos]
+    metrics["avg_fulfillment"] = (
+        float(np.mean(active_fulfillments)) if active_fulfillments else 0.0
+    )
+    metrics["scenario/active_mld"] = float(env.active_mld)
+    metrics["scenario/active_sld"] = float(env.active_sld)
+    metrics["scenario/max_mld"] = float(env.max_mld)
+    metrics["scenario/max_sld"] = float(env.max_sld)
+    return metrics
+
+
 def parse_args(args, parser):
-    parser.add_argument("--num_mld", type=int, default=3)
-    parser.add_argument("--num_sld", type=int, default=3)
-    parser.add_argument("--round_length", type=int, default=50)
+    parser.add_argument("--num_mld", type=int, default=10)
+    parser.add_argument("--num_sld", type=int, default=2)
+    parser.add_argument("--max_mld", type=int, default=30)
+    parser.add_argument("--max_sld", type=int, default=10)
+    parser.add_argument("--round_length", type=int, default=500)
     parser.add_argument("--mu_min", type=float, default=0.01)
-    parser.add_argument("--mu_max", type=float, default=0.1)
+    parser.add_argument("--mu_max", type=float, default=0.12)
     parser.add_argument(
         "--mu_profile",
         type=str,
@@ -41,8 +78,8 @@ def parse_args(args, parser):
     parser.add_argument("--c_idle", type=float, default=0.3)
     parser.add_argument("--theta_scale", type=float, default=1.0)
     parser.add_argument("--wandb_entity", type=str, default=None)
-    parser.add_argument("--wandb_project", type=str, default="WiFi_v5_eval")
-    parser.add_argument("--wandb_group", type=str, default="compare_wifi_v5")
+    parser.add_argument("--wandb_project", type=str, default="WiFi_v6_eval")
+    parser.add_argument("--wandb_group", type=str, default="compare_wifi_v6")
     parser.add_argument("--wandb_run_name", type=str, default=None)
     parser.add_argument(
         "--debug_prob_steps",
@@ -70,13 +107,20 @@ def main(args):
     parser = get_config()
     all_args = parse_args(args, parser)
 
+    if all_args.num_mld < 1 or all_args.num_mld > all_args.max_mld:
+        raise ValueError("--num_mld must be in [1, max_mld]")
+    if all_args.num_sld < 0 or all_args.num_sld > all_args.max_sld:
+        raise ValueError("--num_sld must be in [0, max_sld]")
+    if all_args.wandb_entity:
+        all_args.user_name = all_args.wandb_entity
+
     np.random.seed(all_args.seed)
     torch.manual_seed(all_args.seed)
     torch.cuda.manual_seed_all(all_args.seed)
 
     device = select_device(all_args)
-    run_dir = build_eval_run_dir(all_args, "wifi_v5_rl")
-    run = init_wandb(all_args, run_dir, "wifi_v5_rl")
+    run_dir = build_eval_run_dir(all_args, "wifi_v6_rl")
+    run = init_wandb(all_args, run_dir, "wifi_v6_rl")
 
     env = make_wifi_env(all_args, all_args.seed)
     policy = load_policy(all_args, env, device)
@@ -85,12 +129,13 @@ def main(args):
     for episode in range(all_args.eval_episodes):
         env.seed(all_args.seed + episode)
         obs, share_obs, available_actions = env.reset()
+        del share_obs
 
         rnn_states = np.zeros(
             (env.num_agents, all_args.recurrent_N, all_args.hidden_size),
             dtype=np.float32,
         )
-        masks = np.ones((env.num_agents, 1), dtype=np.float32)
+        masks = env.get_active_masks()
 
         done = False
         episode_reward_total = 0.0
@@ -109,13 +154,15 @@ def main(args):
                 if torch.is_tensor(action_probs):
                     action_probs = action_probs.detach().cpu().numpy()
 
-                avg_skip = float(np.mean(action_probs[:, 0]))
-                avg_transmit = float(np.mean(action_probs[:, 1]))
-                sample_agents = min(4, env.num_agents)
+                active_masks = env.get_active_masks().reshape(-1) > 0.5
+                active_probs = action_probs[active_masks]
+                avg_skip = float(np.mean(active_probs[:, 0]))
+                avg_transmit = float(np.mean(active_probs[:, 1]))
+                sample_agent_ids = np.where(active_masks)[0][:4]
                 sample_prob_text = ", ".join(
                     [
                         f"a{aid}: p0={action_probs[aid, 0]:.4f}, p1={action_probs[aid, 1]:.4f}"
-                        for aid in range(sample_agents)
+                        for aid in sample_agent_ids
                     ]
                 )
                 print(
@@ -136,8 +183,9 @@ def main(args):
             if torch.is_tensor(rnn_states):
                 rnn_states = rnn_states.detach().cpu().numpy()
 
-            transmit_count += int(actions.sum())
-            action_count += int(actions.size)
+            active_masks = env.get_active_masks().reshape(-1) > 0.5
+            transmit_count += int(actions.reshape(-1)[active_masks].sum())
+            action_count += int(active_masks.sum())
 
             obs, share_obs, rewards, dones, infos, available_actions = env.step(actions)
             del share_obs
@@ -149,9 +197,9 @@ def main(args):
                 masks = np.zeros((env.num_agents, 1), dtype=np.float32)
                 rnn_states[:] = 0.0
             else:
-                masks = np.ones((env.num_agents, 1), dtype=np.float32)
+                masks = env.get_active_masks()
 
-        metrics = compute_episode_metrics(env, last_infos, episode_reward_total)
+        metrics = compute_v6_episode_metrics(env, last_infos, episode_reward_total)
         metrics["policy_type"] = 1.0
         metrics["action/transmit_ratio"] = (
             float(transmit_count) / float(action_count) if action_count > 0 else 0.0
@@ -160,7 +208,8 @@ def main(args):
         log_episode_metrics(run, episode, metrics)
         print_episode_metrics(episode, all_args.eval_episodes, metrics)
         print(
-            f"        action/transmit_ratio={metrics['action/transmit_ratio']:.4f} "
+            f"        scenario=m{env.active_mld}_s{env.active_sld} "
+            f"action/transmit_ratio={metrics['action/transmit_ratio']:.4f} "
             f"(deterministic={all_args.deterministic})"
         )
 
