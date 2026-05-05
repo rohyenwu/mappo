@@ -320,12 +320,32 @@ def main():
             },
             reinit=True,
         )
-        wandb.log(
-            {
-                f"{args.wandb_image_key}/{path.stem}": wandb.Image(str(path))
-                for path in output_paths
-            }
-        )
+        image_suffixes = {".png", ".jpg", ".jpeg", ".bmp"}
+        image_paths = [
+            path for path in output_paths
+            if path.suffix.lower() in image_suffixes
+        ]
+        file_paths = [
+            path for path in output_paths
+            if path.suffix.lower() not in image_suffixes
+        ]
+
+        if image_paths:
+            wandb.log(
+                {
+                    f"{args.wandb_image_key}/{path.stem}": wandb.Image(str(path))
+                    for path in image_paths
+                }
+            )
+
+        if file_paths:
+            artifact = wandb.Artifact(
+                name=f"{args.wandb_image_key}_files",
+                type="figure",
+            )
+            for path in file_paths:
+                artifact.add_file(str(path))
+            run.log_artifact(artifact)
         run.finish()
         print(
             f"Uploaded comparison chart to wandb as '{args.wandb_image_key}'."
