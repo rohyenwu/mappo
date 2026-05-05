@@ -54,6 +54,24 @@ def parse_args():
         help="DPI for raster outputs.",
     )
     parser.add_argument(
+        "--fig_width",
+        type=float,
+        default=None,
+        help="Figure width in inches. Defaults to an automatic width based on the number of cases.",
+    )
+    parser.add_argument(
+        "--fig_height",
+        type=float,
+        default=None,
+        help="Figure height in inches.",
+    )
+    parser.add_argument(
+        "--x_label_rotation",
+        type=float,
+        default=None,
+        help="X-axis label rotation in degrees.",
+    )
+    parser.add_argument(
         "--output_formats",
         nargs="+",
         default=None,
@@ -215,6 +233,16 @@ def main():
     labels = [case["label"] for case in cases]
     x = np.arange(len(labels), dtype=float)
     width = 0.34
+    if args.fig_width is None:
+        fig_width = max(4.2, 0.58 * len(labels)) if args.paper_style else 7.0
+    else:
+        fig_width = args.fig_width
+    fig_height = args.fig_height or (2.8 if args.paper_style else 5.0)
+    x_label_rotation = (
+        args.x_label_rotation
+        if args.x_label_rotation is not None
+        else (25 if args.paper_style else 20)
+    )
 
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -237,7 +265,7 @@ def main():
         base_rl_values = [float(case["rl"].get(metric_key, 0.0)) for case in cases]
 
         for unit_suffix, y_label, scale, unit_title in unit_specs:
-            fig_size = (4.2, 2.8) if args.paper_style else (7, 5)
+            fig_size = (fig_width, fig_height)
             fig, ax = plt.subplots(figsize=fig_size)
             beb_values = [value * scale for value in base_beb_values]
             rl_values = [value * scale for value in base_rl_values]
@@ -278,7 +306,7 @@ def main():
                 ax.set_title(f"{args.title} - {metric_title} ({unit_title})")
             ax.set_ylabel(y_label)
             ax.set_xticks(x)
-            ax.set_xticklabels(labels, rotation=15 if args.paper_style else 20, ha="right")
+            ax.set_xticklabels(labels, rotation=x_label_rotation, ha="right")
             ax.grid(axis="y", alpha=0.25, linewidth=0.6 if args.paper_style else 0.8)
             ax.legend(frameon=False)
 
