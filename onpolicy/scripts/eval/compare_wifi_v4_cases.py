@@ -38,6 +38,28 @@ def parse_args():
         help="Chart title.",
     )
     parser.add_argument(
+        "--no_title",
+        action="store_true",
+        help="Do not draw a chart title. Useful when the title is handled by a paper caption.",
+    )
+    parser.add_argument(
+        "--paper_style",
+        action="store_true",
+        help="Use compact publication styling: no title, tighter layout, print-friendly fonts, and higher DPI.",
+    )
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=200,
+        help="DPI for raster outputs.",
+    )
+    parser.add_argument(
+        "--output_formats",
+        nargs="+",
+        default=None,
+        help="Optional output formats such as png pdf. Defaults to the --output_name suffix.",
+    )
+    parser.add_argument(
         "--round_length",
         type=float,
         default=500.0,
@@ -128,6 +150,22 @@ def main():
             "matplotlib and numpy are required for compare_wifi_v4_cases.py"
         ) from exc
 
+    if args.paper_style:
+        plt.rcParams.update(
+            {
+                "font.size": 9,
+                "axes.labelsize": 9,
+                "axes.titlesize": 9,
+                "xtick.labelsize": 8,
+                "ytick.labelsize": 8,
+                "legend.fontsize": 8,
+                "pdf.fonttype": 42,
+                "ps.fonttype": 42,
+                "axes.spines.top": False,
+                "axes.spines.right": False,
+            }
+        )
+
     cases = [parse_case_spec(spec) for spec in args.case]
     metric_keys = [
         ("throughput/2_4GHz/total", "2.4GHz Throughput", "2_4ghz_throughput", None),
@@ -182,6 +220,11 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     output_stem = Path(args.output_name).stem
     output_suffix = Path(args.output_name).suffix or ".png"
+    output_formats = args.output_formats or [output_suffix.lstrip(".")]
+    output_suffixes = [
+        fmt if fmt.startswith(".") else f".{fmt}"
+        for fmt in output_formats
+    ]
     output_paths = []
 
     unit_specs = [
@@ -194,9 +237,8 @@ def main():
         base_rl_values = [float(case["rl"].get(metric_key, 0.0)) for case in cases]
 
         for unit_suffix, y_label, scale, unit_title in unit_specs:
-            output_path = output_dir / f"{output_stem}_{metric_slug}_{unit_suffix}{output_suffix}"
-            output_paths.append(output_path)
-            fig, ax = plt.subplots(figsize=(7, 5))
+            fig_size = (4.2, 2.8) if args.paper_style else (7, 5)
+            fig, ax = plt.subplots(figsize=fig_size)
             beb_values = [value * scale for value in base_beb_values]
             rl_values = [value * scale for value in base_rl_values]
 
@@ -206,6 +248,8 @@ def main():
                 width=width,
                 label=method_names[0],
                 color=method_colors[0],
+                edgecolor="black" if args.paper_style else None,
+                linewidth=0.4 if args.paper_style else 0.0,
             )
             bars_rl = ax.bar(
                 x + width / 2.0,
@@ -213,6 +257,8 @@ def main():
                 width=width,
                 label=method_names[1],
                 color=method_colors[1],
+                edgecolor="black" if args.paper_style else None,
+                linewidth=0.4 if args.paper_style else 0.0,
             )
 
             if not args.hide_bar_labels:
@@ -225,14 +271,15 @@ def main():
                             f"{height:.3f}" if scale == 1.0 else f"{height:.1f}",
                             ha="center",
                             va="bottom",
-                            fontsize=8,
+                            fontsize=7 if args.paper_style else 8,
                         )
 
-            ax.set_title(f"{args.title} - {metric_title} ({unit_title})")
+            if not (args.no_title or args.paper_style):
+                ax.set_title(f"{args.title} - {metric_title} ({unit_title})")
             ax.set_ylabel(y_label)
             ax.set_xticks(x)
-            ax.set_xticklabels(labels, rotation=20, ha="right")
-            ax.grid(axis="y", alpha=0.3)
+            ax.set_xticklabels(labels, rotation=15 if args.paper_style else 20, ha="right")
+            ax.grid(axis="y", alpha=0.25, linewidth=0.6 if args.paper_style else 0.8)
             ax.legend(frameon=False)
 
             if y_limits is not None:
@@ -242,7 +289,10 @@ def main():
                 ax.set_ylim(0.0, max(0.1 * scale, ymax * 1.25))
 
             fig.tight_layout()
-            fig.savefig(output_path, dpi=200, bbox_inches="tight")
+            for suffix in output_suffixes:
+                output_path = output_dir / f"{output_stem}_{metric_slug}_{unit_suffix}{suffix}"
+                output_paths.append(output_path)
+                fig.savefig(output_path, dpi=max(args.dpi, 600) if args.paper_style else args.dpi, bbox_inches="tight")
             plt.close(fig)
 
     print("Saved WiFi v4 case comparison charts to:")
