@@ -16,6 +16,7 @@ class WiFiEnvV7:
 
     Relative to v6:
     - remove `step_slots_norm` from actor observations
+    - keep scenario-size ratios only in critic shared observations
     - remove critic-only duplicate fulfillment vector
     - remove critic-only `step_slots_norm`
     """
@@ -91,7 +92,7 @@ class WiFiEnvV7:
 
         self.mu = np.zeros((self.max_mld, 2), dtype=np.float32)
 
-        self.obs_dim = 11
+        self.obs_dim = 9
         obs_low = np.zeros(self.obs_dim, dtype=np.float32)
         obs_high = np.ones(self.obs_dim, dtype=np.float32)
         self.observation_space = [
@@ -307,8 +308,6 @@ class WiFiEnvV7:
                 prev_action_peer,
                 busy_flag,
                 idle_progress,
-                self.active_mld / max(self.max_mld, 1),
-                self.active_sld / max(self.max_sld, 1),
                 *link_onehot,
             ]
         return obs
