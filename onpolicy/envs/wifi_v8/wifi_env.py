@@ -1,4 +1,4 @@
-"""WiFi v7.1 environment with a local same-link usage EMA feature."""
+"""WiFi v7 environment with leaner actor/critic inputs than v6."""
 
 import numpy as np
 from gym import spaces
@@ -10,13 +10,12 @@ DIFS_SLOTS = 2
 TX_BUSY_SLOTS = 1
 
 
-class WiFiEnvV7_1:
+class WiFiEnvV7:
     """
     WiFi coexistence environment with scenario-based active MLD/SLD counts.
 
-    Relative to v7:
-    - add same-link usage EMA to actor local observations
-    - use ratio-based sparse reward scaling at round end
+    Relative to v6:
+    - remove `step_slots_norm` from actor observations
     - keep scenario-size ratios only in critic shared observations
     - remove critic-only duplicate fulfillment vector
     - remove critic-only `step_slots_norm`
@@ -93,9 +92,7 @@ class WiFiEnvV7_1:
 
         self.mu = np.zeros((self.max_mld, 2), dtype=np.float32)
 
-        self.usage_ema_alpha = 0.2
-
-        self.obs_dim = 10
+        self.obs_dim = 9
         obs_low = np.zeros(self.obs_dim, dtype=np.float32)
         obs_high = np.ones(self.obs_dim, dtype=np.float32)
         self.observation_space = [
@@ -196,7 +193,6 @@ class WiFiEnvV7_1:
 
         self.link_busy_slots = np.zeros(self.num_links, dtype=np.int32)
         self.link_idle_slots = np.zeros(self.num_links, dtype=np.int32)
-        self.link_usage_ema = np.zeros(self.num_links, dtype=np.float32)
 
     def _reset_round(self):
         self.t = 0
@@ -214,7 +210,6 @@ class WiFiEnvV7_1:
         self.round_mld_transmissions[:] = 0
         self.link_busy_slots[:] = 0
         self.link_idle_slots[:] = 0
-        self.link_usage_ema[:] = 0.0
 
         for sld in self.sld_state:
             sld["cw"] = SLD_CW_MIN
@@ -304,7 +299,6 @@ class WiFiEnvV7_1:
             prev_action_peer = float(self.prev_actions[peer_aid])
             busy_flag = float(self.link_busy_slots[link_id] > 0)
             idle_progress = min(self.link_idle_slots[link_id], DIFS_SLOTS) / float(DIFS_SLOTS)
-            link_usage_ema = float(self.link_usage_ema[link_id])
             link_onehot = [1.0, 0.0] if link_id == 0 else [0.0, 1.0]
             obs[aid] = [
                 shared_load,
@@ -314,7 +308,6 @@ class WiFiEnvV7_1:
                 prev_action_peer,
                 busy_flag,
                 idle_progress,
-                link_usage_ema,
                 *link_onehot,
             ]
         return obs
@@ -526,12 +519,6 @@ class WiFiEnvV7_1:
                 self.link_busy_slots[link_id] = TX_BUSY_SLOTS
                 self.link_idle_slots[link_id] = 0
 
-            usage = 0.0 if result == "idle" else 1.0
-            self.link_usage_ema[link_id] = (
-                self.usage_ema_alpha * usage
-                + (1.0 - self.usage_ema_alpha) * self.link_usage_ema[link_id]
-            )
-
         self.t += 1
         done = self.t >= self.round_length
 
@@ -607,17 +594,13 @@ class WiFiEnvV7_1:
         p_avg = np.mean(participations) if participations else 0
         skip_avg = np.mean(skips) if skips else 0
 
-        round_length = max(float(self.round_length), 1.0)
-
         for idx, aid in enumerate(link_0_aids):
-            participation_ratio_gap = max(0.0, (participations[idx] - p_avg) / round_length)
-            skip_ratio_gap = max(0.0, (skips[idx] - skip_avg) / round_length)
             if actual_sld_success < target_sld_success:
-                penalty = self.eta * participation_ratio_gap
+                penalty = self.eta * max(0, participations[idx] - p_avg)
                 rewards[aid, 0] -= penalty
                 sparse_rewards[aid] -= penalty
             else:
-                bonus = self.zeta * skip_ratio_gap
+                bonus = self.zeta * max(0, skips[idx] - skip_avg)
                 rewards[aid, 0] += bonus
                 sparse_rewards[aid] += bonus
 
