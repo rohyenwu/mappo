@@ -53,6 +53,8 @@ class MbpsAccumulator:
         self.bits_mld_24 = 0.0
         self.bits_mld_5 = 0.0
         self.bits_sld = 0.0
+        self.step_count = 0
+        self.total_step_slots = 0.0
 
     def done(self) -> bool:
         return self.elapsed_sec >= self.time_model.eval_duration_sec - 1e-12
@@ -88,11 +90,13 @@ class MbpsAccumulator:
 
         return bits_mld_24, bits_mld_5, bits_sld
 
-    def add_step(self, link_events: dict) -> float:
+    def add_step(self, link_events: dict, step_slots: float = 0.0) -> float:
         if self.done():
             return 0.0
 
-        duration_sec = self._step_duration_sec(link_events)
+        step_slots = max(float(step_slots), 0.0)
+        wait_sec = step_slots * self.time_model.slot_time_sec
+        duration_sec = wait_sec + self._step_duration_sec(link_events)
         bits_mld_24, bits_mld_5, bits_sld = self._step_bits(link_events)
 
         remaining_sec = max(self.time_model.eval_duration_sec - self.elapsed_sec, 0.0)
@@ -102,6 +106,8 @@ class MbpsAccumulator:
         self.bits_mld_5 += bits_mld_5 * fraction
         self.bits_sld += bits_sld * fraction
         self.elapsed_sec += duration_sec * fraction
+        self.step_count += 1
+        self.total_step_slots += step_slots * fraction
         return fraction
 
     def as_metrics(self) -> dict:
@@ -124,6 +130,11 @@ class MbpsAccumulator:
             "mbps/system": float(mbps_system),
             "timing/eval_duration_sec": float(duration_sec),
             "timing/elapsed_sec": float(self.elapsed_sec),
+            "timing/step_count": float(self.step_count),
+            "timing/total_step_slots": float(self.total_step_slots),
+            "timing/avg_step_slots": float(
+                self.total_step_slots / max(self.step_count, 1)
+            ),
         }
 
 

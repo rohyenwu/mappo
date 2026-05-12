@@ -142,7 +142,8 @@ def main(args):
             link_events, prev_link_successes, prev_sld_success = infer_link_events(
                 env, infos, prev_link_successes, prev_sld_success
             )
-            accumulator.add_step(link_events)
+            step_slots = infos[0].get("step_slots", env.last_step_slots) if infos else env.last_step_slots
+            accumulator.add_step(link_events, step_slots=step_slots)
 
             if bool(np.all(dones)):
                 if accumulator.done():
