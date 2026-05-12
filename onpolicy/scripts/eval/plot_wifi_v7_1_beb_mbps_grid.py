@@ -43,6 +43,45 @@ def load_summary(path: Path):
         return json.load(handle)
 
 
+def save_single_metric_chart(args, output_dir, cases, metric_key, metric_title, metric_slug, y_label):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    labels = [case["label"] for case in cases]
+    x = np.arange(len(labels), dtype=float)
+    values = [float(case["summary"].get(metric_key, 0.0)) for case in cases]
+
+    fig, ax = plt.subplots(figsize=(max(8.0, 0.62 * len(labels)), 5.0))
+    bars = ax.bar(x, values, width=0.55, color="#4c78a8")
+    if not args.hide_bar_labels:
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height,
+                f"{height:.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+            )
+
+    ax.set_title(f"{args.title} - {metric_title}")
+    ax.set_ylabel(y_label)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=25, ha="right")
+    ax.grid(axis="y", alpha=0.25)
+    ymax = max(values) if values else 0.0
+    ax.set_ylim(0.0, max(1.0, ymax * 1.18))
+    fig.tight_layout()
+
+    stem = Path(args.output_name).stem
+    suffix = Path(args.output_name).suffix or ".png"
+    output_path = output_dir / f"{stem}_{metric_slug}{suffix}"
+    fig.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
+
+
 def main():
     args = parse_args()
 
@@ -113,6 +152,41 @@ def main():
     fig.savefig(output_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved BEB Mbps grid chart: {output_path}")
+    output_paths = [output_path]
+
+    extra_metric_specs = [
+        ("collision_rate/2_4GHz/per_event", "2.4GHz Collision Rate", "2_4ghz_collision_rate", "Rate / event"),
+        ("collision_rate/5GHz/per_event", "5GHz Collision Rate", "5ghz_collision_rate", "Rate / event"),
+        ("collision_rate/system_per_event", "System Collision Rate", "system_collision_rate", "Rate / event"),
+        ("success_rate/2_4GHz/per_event", "2.4GHz Success Rate", "2_4ghz_success_rate", "Rate / event"),
+        ("success_rate/5GHz/per_event", "5GHz Success Rate", "5ghz_success_rate", "Rate / event"),
+        ("success_rate/system_per_event", "System Success Rate", "system_success_rate", "Rate / event"),
+        ("idle_rate/2_4GHz/per_event", "2.4GHz Idle Rate", "2_4ghz_idle_rate", "Rate / event"),
+        ("idle_rate/5GHz/per_event", "5GHz Idle Rate", "5ghz_idle_rate", "Rate / event"),
+        ("idle_rate/system_per_event", "System Idle Rate", "system_idle_rate", "Rate / event"),
+        ("events/2_4GHz/success", "2.4GHz Success Events", "2_4ghz_success_events", "Events"),
+        ("events/5GHz/success", "5GHz Success Events", "5ghz_success_events", "Events"),
+        ("events/system/success", "System Success Events", "system_success_events", "Events"),
+        ("events/2_4GHz/collision", "2.4GHz Collision Events", "2_4ghz_collision_events", "Events"),
+        ("events/5GHz/collision", "5GHz Collision Events", "5ghz_collision_events", "Events"),
+        ("events/system/collision", "System Collision Events", "system_collision_events", "Events"),
+        ("events/2_4GHz/idle", "2.4GHz Idle Events", "2_4ghz_idle_events", "Events"),
+        ("events/5GHz/idle", "5GHz Idle Events", "5ghz_idle_events", "Events"),
+        ("events/system/idle", "System Idle Events", "system_idle_events", "Events"),
+    ]
+    for metric_key, metric_title, metric_slug, y_label in extra_metric_specs:
+        if any(metric_key in case["summary"] for case in cases):
+            extra_path = save_single_metric_chart(
+                args,
+                output_dir,
+                cases,
+                metric_key,
+                metric_title,
+                metric_slug,
+                y_label,
+            )
+            output_paths.append(extra_path)
+            print(f"Saved BEB metric chart: {extra_path}")
 
     if args.wandb_project:
         try:
@@ -136,9 +210,15 @@ def main():
             },
             reinit=True,
         )
-        wandb.log({args.wandb_image_key: wandb.Image(str(output_path))})
+        wandb.log(
+            {
+                f"{args.wandb_image_key}/{path.stem}": wandb.Image(str(path))
+                for path in output_paths
+            }
+        )
         artifact = wandb.Artifact(args.wandb_image_key, type="figure")
-        artifact.add_file(str(output_path))
+        for path in output_paths:
+            artifact.add_file(str(path))
         run.log_artifact(artifact)
         run.finish()
         print(f"Uploaded chart to wandb key: {args.wandb_image_key}")

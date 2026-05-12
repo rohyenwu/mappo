@@ -55,6 +55,14 @@ class MbpsAccumulator:
         self.bits_sld = 0.0
         self.step_count = 0
         self.total_step_slots = 0.0
+        self.event_counts = {
+            link_id: {"success": 0.0, "collision": 0.0, "idle": 0.0}
+            for link_id in (0, 1)
+        }
+        self.success_type_counts = {
+            link_id: {"mld": 0.0, "sld": 0.0}
+            for link_id in (0, 1)
+        }
 
     def done(self) -> bool:
         return self.elapsed_sec >= self.time_model.eval_duration_sec - 1e-12
@@ -108,6 +116,13 @@ class MbpsAccumulator:
         self.elapsed_sec += duration_sec * fraction
         self.step_count += 1
         self.total_step_slots += step_slots * fraction
+        for link_id in (0, 1):
+            result = link_events[link_id]["result"]
+            if result in self.event_counts[link_id]:
+                self.event_counts[link_id][result] += fraction
+            success_type = link_events[link_id].get("success_type")
+            if result == "success" and success_type in self.success_type_counts[link_id]:
+                self.success_type_counts[link_id][success_type] += fraction
         return fraction
 
     def as_metrics(self) -> dict:
@@ -118,7 +133,7 @@ class MbpsAccumulator:
         mbps_mld = mbps_24 + mbps_5
         mbps_system = mbps_mld + mbps_sld
 
-        return {
+        metrics = {
             "mbps/2_4GHz/mld": float(mbps_24),
             "mbps/2_4GHz/sld": float(mbps_sld),
             "mbps/2_4GHz/total": float(mbps_24 + mbps_sld),
@@ -136,6 +151,49 @@ class MbpsAccumulator:
                 self.total_step_slots / max(self.step_count, 1)
             ),
         }
+        link_names = {0: "2_4GHz", 1: "5GHz"}
+        system_events = 0.0
+        system_collisions = 0.0
+        system_successes = 0.0
+        system_idle = 0.0
+        for link_id, link_name in link_names.items():
+            counts = self.event_counts[link_id]
+            success_types = self.success_type_counts[link_id]
+            events = counts["success"] + counts["collision"] + counts["idle"]
+            system_events += events
+            system_collisions += counts["collision"]
+            system_successes += counts["success"]
+            system_idle += counts["idle"]
+            metrics[f"events/{link_name}/success"] = float(counts["success"])
+            metrics[f"events/{link_name}/collision"] = float(counts["collision"])
+            metrics[f"events/{link_name}/idle"] = float(counts["idle"])
+            metrics[f"events/{link_name}/total"] = float(events)
+            metrics[f"events/{link_name}/success_mld"] = float(success_types["mld"])
+            metrics[f"events/{link_name}/success_sld"] = float(success_types["sld"])
+            metrics[f"collision_rate/{link_name}/per_event"] = float(
+                counts["collision"] / max(events, 1.0)
+            )
+            metrics[f"success_rate/{link_name}/per_event"] = float(
+                counts["success"] / max(events, 1.0)
+            )
+            metrics[f"idle_rate/{link_name}/per_event"] = float(
+                counts["idle"] / max(events, 1.0)
+            )
+
+        metrics["events/system/success"] = float(system_successes)
+        metrics["events/system/collision"] = float(system_collisions)
+        metrics["events/system/idle"] = float(system_idle)
+        metrics["events/system/total"] = float(system_events)
+        metrics["collision_rate/system_per_event"] = float(
+            system_collisions / max(system_events, 1.0)
+        )
+        metrics["success_rate/system_per_event"] = float(
+            system_successes / max(system_events, 1.0)
+        )
+        metrics["idle_rate/system_per_event"] = float(
+            system_idle / max(system_events, 1.0)
+        )
+        return metrics
 
 
 def infer_link_events(env, infos, prev_link_successes, prev_sld_success):

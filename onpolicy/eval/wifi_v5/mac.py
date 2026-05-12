@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-CW_MIN = 16
+CW_MIN = 8
 CW_MAX = 1024
 RETRY_LIMIT = 6
 

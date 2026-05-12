@@ -40,7 +40,7 @@ def load_summary(path: Path):
         return json.load(handle)
 
 
-def plot_metric(args, cases, metric_key, metric_title, metric_slug):
+def plot_metric(args, cases, metric_key, metric_title, metric_slug, y_label):
     import matplotlib.pyplot as plt
     import numpy as np
 
@@ -68,7 +68,7 @@ def plot_metric(args, cases, metric_key, metric_title, metric_slug):
                 )
 
     ax.set_title(f"{args.title} - {metric_title}")
-    ax.set_ylabel("Throughput (Mbps)")
+    ax.set_ylabel(y_label)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, rotation=25, ha="right")
     ax.grid(axis="y", alpha=0.25)
@@ -118,15 +118,33 @@ def main():
             )
 
     metric_specs = [
-        ("mbps/2_4GHz/total", "2.4GHz", "2_4ghz"),
-        ("mbps/5GHz/total", "5GHz", "5ghz"),
-        ("mbps/mld_total", "MLD Total", "mld_total"),
-        ("mbps/sld_total", "SLD Total", "sld_total"),
-        ("mbps/system", "System", "system"),
+        ("mbps/2_4GHz/total", "2.4GHz", "2_4ghz", "Throughput (Mbps)"),
+        ("mbps/5GHz/total", "5GHz", "5ghz", "Throughput (Mbps)"),
+        ("mbps/mld_total", "MLD Total", "mld_total", "Throughput (Mbps)"),
+        ("mbps/sld_total", "SLD Total", "sld_total", "Throughput (Mbps)"),
+        ("mbps/system", "System", "system", "Throughput (Mbps)"),
+        ("collision_rate/2_4GHz/per_event", "2.4GHz Collision Rate", "2_4ghz_collision_rate", "Rate / event"),
+        ("collision_rate/5GHz/per_event", "5GHz Collision Rate", "5ghz_collision_rate", "Rate / event"),
+        ("collision_rate/system_per_event", "System Collision Rate", "system_collision_rate", "Rate / event"),
+        ("success_rate/2_4GHz/per_event", "2.4GHz Success Rate", "2_4ghz_success_rate", "Rate / event"),
+        ("success_rate/5GHz/per_event", "5GHz Success Rate", "5ghz_success_rate", "Rate / event"),
+        ("success_rate/system_per_event", "System Success Rate", "system_success_rate", "Rate / event"),
+        ("idle_rate/2_4GHz/per_event", "2.4GHz Idle Rate", "2_4ghz_idle_rate", "Rate / event"),
+        ("idle_rate/5GHz/per_event", "5GHz Idle Rate", "5ghz_idle_rate", "Rate / event"),
+        ("idle_rate/system_per_event", "System Idle Rate", "system_idle_rate", "Rate / event"),
+        ("events/2_4GHz/success", "2.4GHz Success Events", "2_4ghz_success_events", "Events"),
+        ("events/5GHz/success", "5GHz Success Events", "5ghz_success_events", "Events"),
+        ("events/system/success", "System Success Events", "system_success_events", "Events"),
+        ("events/2_4GHz/collision", "2.4GHz Collision Events", "2_4ghz_collision_events", "Events"),
+        ("events/5GHz/collision", "5GHz Collision Events", "5ghz_collision_events", "Events"),
+        ("events/system/collision", "System Collision Events", "system_collision_events", "Events"),
+        ("events/2_4GHz/idle", "2.4GHz Idle Events", "2_4ghz_idle_events", "Events"),
+        ("events/5GHz/idle", "5GHz Idle Events", "5ghz_idle_events", "Events"),
+        ("events/system/idle", "System Idle Events", "system_idle_events", "Events"),
     ]
     output_paths = [
-        plot_metric(args, cases, metric_key, metric_title, metric_slug)
-        for metric_key, metric_title, metric_slug in metric_specs
+        plot_metric(args, cases, metric_key, metric_title, metric_slug, y_label)
+        for metric_key, metric_title, metric_slug, y_label in metric_specs
     ]
 
     print("Saved BEB vs RL Mbps comparison charts:")
