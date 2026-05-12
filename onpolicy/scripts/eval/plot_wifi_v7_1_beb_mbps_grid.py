@@ -1,0 +1,148 @@
+#!/usr/bin/env python
+"""Plot WiFi v7.1 BEB Mbps grid summaries and optionally upload to wandb."""
+
+import argparse
+import json
+from pathlib import Path
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Create BEB Mbps bar charts from WiFi v7.1 grid summaries."
+    )
+    parser.add_argument(
+        "--base_dir",
+        type=str,
+        required=True,
+        help="Directory containing m*_s*_beb_mbps*/beb_mbps_summary.json folders.",
+    )
+    parser.add_argument("--output_dir", type=str, default=None)
+    parser.add_argument("--output_name", type=str, default="wifi_v7_1_beb_mbps_grid.png")
+    parser.add_argument("--title", type=str, default="WiFi v7.1 BEB Mbps Grid")
+    parser.add_argument("--m_values", nargs="+", type=int, default=[10, 15, 20, 25, 30])
+    parser.add_argument("--s_values", nargs="+", type=int, default=[2, 5, 10])
+    parser.add_argument(
+        "--experiment_suffix",
+        type=str,
+        default="_beb_mbps_ep3",
+        help="Folder suffix after m{m}_s{s}; default matches the ep3 run names.",
+    )
+    parser.add_argument("--hide_bar_labels", action="store_true")
+    parser.add_argument("--wandb_project", type=str, default=None)
+    parser.add_argument("--wandb_group", type=str, default=None)
+    parser.add_argument("--wandb_run_name", type=str, default=None)
+    parser.add_argument("--wandb_entity", type=str, default=None)
+    parser.add_argument("--wandb_image_key", type=str, default="beb_mbps_grid")
+    return parser.parse_args()
+
+
+def load_summary(path: Path):
+    if not path.exists():
+        raise FileNotFoundError(f"Summary file not found: {path}")
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def main():
+    args = parse_args()
+
+    try:
+        import matplotlib.pyplot as plt
+        import numpy as np
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "matplotlib and numpy are required for plot_wifi_v7_1_beb_mbps_grid.py"
+        ) from exc
+
+    base_dir = Path(args.base_dir).expanduser()
+    output_dir = Path(args.output_dir).expanduser() if args.output_dir else base_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    cases = []
+    for m in args.m_values:
+        for s in args.s_values:
+            label = f"m{m}_s{s}"
+            summary_path = base_dir / f"{label}{args.experiment_suffix}" / "beb_mbps_summary.json"
+            summary = load_summary(summary_path)
+            cases.append(
+                {
+                    "label": label,
+                    "summary_path": str(summary_path),
+                    "summary": summary,
+                }
+            )
+
+    labels = [case["label"] for case in cases]
+    x = np.arange(len(labels), dtype=float)
+    width = 0.26
+    metric_specs = [
+        ("mbps/system", "System", "#4c78a8", -width),
+        ("mbps/mld_total", "MLD", "#f58518", 0.0),
+        ("mbps/sld_total", "SLD", "#54a24b", width),
+    ]
+
+    fig, ax = plt.subplots(figsize=(max(8.0, 0.62 * len(labels)), 5.0))
+    all_values = []
+    for metric_key, metric_label, color, offset in metric_specs:
+        values = [float(case["summary"].get(metric_key, 0.0)) for case in cases]
+        all_values.extend(values)
+        bars = ax.bar(x + offset, values, width=width, label=metric_label, color=color)
+        if not args.hide_bar_labels:
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2.0,
+                    height,
+                    f"{height:.2f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=8,
+                )
+
+    ax.set_title(args.title)
+    ax.set_ylabel("Throughput (Mbps)")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=25, ha="right")
+    ax.grid(axis="y", alpha=0.25)
+    ax.legend(frameon=False)
+    ymax = max(all_values) if all_values else 0.0
+    ax.set_ylim(0.0, max(1.0, ymax * 1.18))
+    fig.tight_layout()
+
+    output_path = output_dir / args.output_name
+    fig.savefig(output_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved BEB Mbps grid chart: {output_path}")
+
+    if args.wandb_project:
+        try:
+            import wandb
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError("wandb is required when --wandb_project is set.") from exc
+
+        run = wandb.init(
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            group=args.wandb_group,
+            name=args.wandb_run_name,
+            job_type="comparison",
+            config={
+                "base_dir": str(base_dir),
+                "output_name": args.output_name,
+                "m_values": args.m_values,
+                "s_values": args.s_values,
+                "experiment_suffix": args.experiment_suffix,
+                "cases": cases,
+            },
+            reinit=True,
+        )
+        wandb.log({args.wandb_image_key: wandb.Image(str(output_path))})
+        artifact = wandb.Artifact(args.wandb_image_key, type="figure")
+        artifact.add_file(str(output_path))
+        run.log_artifact(artifact)
+        run.finish()
+        print(f"Uploaded chart to wandb key: {args.wandb_image_key}")
+
+
+if __name__ == "__main__":
+    main()
