@@ -6,7 +6,7 @@ import sys
 import numpy as np
 
 from onpolicy.config import get_config
-from onpolicy.envs.wifi_v7_1.wifi_env import WiFiEnvV7_1
+from onpolicy.envs.wifi_v7_1.wifi_env import SLD_CW_MIN, WiFiEnvV7_1
 from onpolicy.eval.wifi_v5.mac import MLDBackoffMAC
 from onpolicy.eval.wifi_v5.utils import (
     build_eval_run_dir,
@@ -102,6 +102,7 @@ def main(args):
     mac = MLDBackoffMAC(
         env.num_agents,
         env.agent_to_mld_link,
+        cw_min=SLD_CW_MIN,
         rng=np.random.default_rng(all_args.seed),
     )
 
