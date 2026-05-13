@@ -49,6 +49,11 @@ class R_MAPPOPolicy:
         update_linear_schedule(self.critic_optimizer, episode, episodes, self.critic_lr)
 
     def _route_critics(self, cent_obs, rnn_states_critic, masks):
+        cent_obs_np = np.asarray(cent_obs)
+        link_bits_np = cent_obs_np[:, -2:]
+        idx_24_np = np.flatnonzero(link_bits_np[:, 0] >= link_bits_np[:, 1])
+        idx_5_np = np.flatnonzero(link_bits_np[:, 0] < link_bits_np[:, 1])
+
         cent_obs_t = torch.as_tensor(cent_obs, dtype=torch.float32, device=self.device)
         rnn_states_t = torch.as_tensor(rnn_states_critic, dtype=torch.float32, device=self.device)
         masks_t = torch.as_tensor(masks, dtype=torch.float32, device=self.device)
@@ -58,22 +63,19 @@ class R_MAPPOPolicy:
 
         # Feed-forward / rollout path: one critic state per sample row.
         if state_rows == total_rows:
-            link_bits = cent_obs_t[:, -2:]
-            is_link_24 = link_bits[:, 0] >= link_bits[:, 1]
-            idx_24 = torch.nonzero(is_link_24, as_tuple=False).squeeze(-1)
-            idx_5 = torch.nonzero(~is_link_24, as_tuple=False).squeeze(-1)
-
             values = torch.zeros((total_rows, 1), dtype=torch.float32, device=self.device)
             next_rnn_states = rnn_states_t.clone()
 
-            if idx_24.numel() > 0:
+            if idx_24_np.size > 0:
+                idx_24 = torch.as_tensor(idx_24_np, dtype=torch.long, device=self.device)
                 values_24, next_states_24 = self.critic_24(
                     cent_obs_t[idx_24], rnn_states_t[idx_24], masks_t[idx_24]
                 )
                 values[idx_24] = values_24
                 next_rnn_states[idx_24] = next_states_24
 
-            if idx_5.numel() > 0:
+            if idx_5_np.size > 0:
+                idx_5 = torch.as_tensor(idx_5_np, dtype=torch.long, device=self.device)
                 values_5, next_states_5 = self.critic_5(
                     cent_obs_t[idx_5], rnn_states_t[idx_5], masks_t[idx_5]
                 )
@@ -93,30 +95,31 @@ class R_MAPPOPolicy:
         cent_obs_seq = cent_obs_t.view(seq_len, state_rows, -1)
         masks_seq = masks_t.view(seq_len, state_rows, -1)
 
-        link_bits = cent_obs_seq[0, :, -2:]
-        is_link_24 = link_bits[:, 0] >= link_bits[:, 1]
-        idx_24 = torch.nonzero(is_link_24, as_tuple=False).squeeze(-1)
-        idx_5 = torch.nonzero(~is_link_24, as_tuple=False).squeeze(-1)
+        first_rows = np.arange(state_rows, dtype=np.int64)
+        idx_24_np = first_rows[link_bits_np[:state_rows, 0] >= link_bits_np[:state_rows, 1]]
+        idx_5_np = first_rows[link_bits_np[:state_rows, 0] < link_bits_np[:state_rows, 1]]
 
         values_seq = torch.zeros((seq_len, state_rows, 1), dtype=torch.float32, device=self.device)
         next_rnn_states = rnn_states_t.clone()
 
-        if idx_24.numel() > 0:
-            cent_obs_24 = cent_obs_seq[:, idx_24, :].reshape(seq_len * idx_24.numel(), -1)
-            masks_24 = masks_seq[:, idx_24, :].reshape(seq_len * idx_24.numel(), -1)
+        if idx_24_np.size > 0:
+            idx_24 = torch.as_tensor(idx_24_np, dtype=torch.long, device=self.device)
+            cent_obs_24 = cent_obs_seq[:, idx_24, :].reshape(seq_len * idx_24_np.size, -1)
+            masks_24 = masks_seq[:, idx_24, :].reshape(seq_len * idx_24_np.size, -1)
             values_24, next_states_24 = self.critic_24(
                 cent_obs_24, rnn_states_t[idx_24], masks_24
             )
-            values_seq[:, idx_24, :] = values_24.view(seq_len, idx_24.numel(), -1)
+            values_seq[:, idx_24, :] = values_24.view(seq_len, idx_24_np.size, -1)
             next_rnn_states[idx_24] = next_states_24
 
-        if idx_5.numel() > 0:
-            cent_obs_5 = cent_obs_seq[:, idx_5, :].reshape(seq_len * idx_5.numel(), -1)
-            masks_5 = masks_seq[:, idx_5, :].reshape(seq_len * idx_5.numel(), -1)
+        if idx_5_np.size > 0:
+            idx_5 = torch.as_tensor(idx_5_np, dtype=torch.long, device=self.device)
+            cent_obs_5 = cent_obs_seq[:, idx_5, :].reshape(seq_len * idx_5_np.size, -1)
+            masks_5 = masks_seq[:, idx_5, :].reshape(seq_len * idx_5_np.size, -1)
             values_5, next_states_5 = self.critic_5(
                 cent_obs_5, rnn_states_t[idx_5], masks_5
             )
-            values_seq[:, idx_5, :] = values_5.view(seq_len, idx_5.numel(), -1)
+            values_seq[:, idx_5, :] = values_5.view(seq_len, idx_5_np.size, -1)
             next_rnn_states[idx_5] = next_states_5
 
         return values_seq.reshape(total_rows, -1), next_rnn_states
