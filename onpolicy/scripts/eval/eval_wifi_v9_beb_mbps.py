@@ -40,6 +40,8 @@ def make_wifi_env(args, seed: int):
         r_sld=args.r_sld,
         c_idle=args.c_idle,
         theta_scale=args.theta_scale,
+        sld_target_low_scale=args.sld_target_low_scale,
+        sld_target_high_scale=args.sld_target_high_scale,
     )
     env.seed(seed)
     return env
@@ -75,6 +77,8 @@ def parse_args(args, parser):
     parser.add_argument("--r_sld", type=float, default=0.3)
     parser.add_argument("--c_idle", type=float, default=0.3)
     parser.add_argument("--theta_scale", type=float, default=1.0)
+    parser.add_argument("--sld_target_low_scale", type=float, default=0.5)
+    parser.add_argument("--sld_target_high_scale", type=float, default=0.7)
     parser.add_argument("--eval_duration_sec", type=float, default=30.0)
     parser.add_argument("--slot_time_sec", type=float, default=9e-6)
     parser.add_argument("--phy_preamble_sec", type=float, default=20e-6)

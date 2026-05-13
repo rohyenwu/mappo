@@ -36,6 +36,8 @@ class WiFiEnvV9:
         r_sld: float = 0.3,
         c_idle: float = 0.3,
         theta_scale: float = 1.0,
+        sld_target_low_scale: float = 0.5,
+        sld_target_high_scale: float = 0.7,
         gamma: float = 0.99,
     ):
         del sld_mu, f_func, g_func, gamma
@@ -75,6 +77,8 @@ class WiFiEnvV9:
         self.r_sld = r_sld
         self.c_idle = c_idle
         self.theta_scale = theta_scale
+        self.sld_target_low_scale = sld_target_low_scale
+        self.sld_target_high_scale = sld_target_high_scale
 
         self.num_links = 2
         self.n_sld_per_link = [self.active_sld, 0]
@@ -605,8 +609,14 @@ class WiFiEnvV9:
 
         n_mld_24 = len(self._active_link_agents(0))
         base_theta = self.active_sld / max(self.active_sld + n_mld_24, 1)
-        theta = self.theta_scale * base_theta
-        target_sld_success = theta * self.round_length
+        target_low = (
+            self.theta_scale * self.sld_target_low_scale * base_theta * self.round_length
+        )
+        target_high = (
+            self.theta_scale * self.sld_target_high_scale * base_theta * self.round_length
+        )
+        if target_low > target_high:
+            target_low, target_high = target_high, target_low
         actual_sld_success = float(self.round_sld_success)
 
         link_0_aids = self._active_link_agents(0)
@@ -626,14 +636,14 @@ class WiFiEnvV9:
         for idx, aid in enumerate(link_0_aids):
             participation_ratio_gap = max(0.0, (participations[idx] - p_avg) / round_length)
             skip_ratio_gap = max(0.0, (skips[idx] - skip_avg) / round_length)
-            if actual_sld_success < target_sld_success:
+            if actual_sld_success < target_low:
                 penalty = self.eta * participation_ratio_gap
                 rewards[aid, 0] -= penalty
                 sparse_rewards[aid] -= penalty
-            else:
-                bonus = self.zeta * skip_ratio_gap
-                rewards[aid, 0] += bonus
-                sparse_rewards[aid] += bonus
+            elif actual_sld_success > target_high:
+                penalty = self.zeta * skip_ratio_gap
+                rewards[aid, 0] -= penalty
+                sparse_rewards[aid] -= penalty
 
         return sparse_rewards
 

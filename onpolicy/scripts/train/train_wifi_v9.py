@@ -53,6 +53,8 @@ def make_env(all_args, seed_offset: int):
                 r_sld=all_args.r_sld,
                 c_idle=all_args.c_idle,
                 theta_scale=all_args.theta_scale,
+                sld_target_low_scale=all_args.sld_target_low_scale,
+                sld_target_high_scale=all_args.sld_target_high_scale,
             )
             env.seed(seed_offset + rank * 1000)
             return env
@@ -116,14 +118,26 @@ def parse_args(args, parser):
         help="Comma-separated per-MLD demand rates. Overrides mu_min/mu_max when set.",
     )
     parser.add_argument("--eta", type=float, default=1.0, help="SLD deficit penalty scale")
-    parser.add_argument("--zeta", type=float, default=1.0, help="SLD protection bonus scale")
+    parser.add_argument("--zeta", type=float, default=1.0, help="SLD excess-yield penalty scale")
     parser.add_argument("--r_sld", type=float, default=0.3, help="Reserved for compatibility")
     parser.add_argument("--c_idle", type=float, default=0.3, help="Idle opportunity penalty")
     parser.add_argument(
         "--theta_scale",
         type=float,
         default=1.0,
-        help="Scale factor for the SLD protection threshold",
+        help="Common scale factor for the SLD target range",
+    )
+    parser.add_argument(
+        "--sld_target_low_scale",
+        type=float,
+        default=0.5,
+        help="Lower SLD target multiplier applied to SLD/(SLD+MLD_2.4GHz).",
+    )
+    parser.add_argument(
+        "--sld_target_high_scale",
+        type=float,
+        default=0.7,
+        help="Upper SLD target multiplier applied to SLD/(SLD+MLD_2.4GHz).",
     )
     parser.add_argument(
         "--rounds_per_update",
