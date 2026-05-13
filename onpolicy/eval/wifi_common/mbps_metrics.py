@@ -71,13 +71,15 @@ class MbpsAccumulator:
         durations = []
         for link_id in (0, 1):
             result = link_events[link_id]["result"]
+            if result == "not_ready":
+                continue
             if result == "success":
                 durations.append(self.time_model.success_time_sec(link_id))
             elif result == "collision":
                 durations.append(self.time_model.collision_time_sec(link_id))
             else:
                 durations.append(self.time_model.idle_time_sec())
-        return max(durations)
+        return max(durations) if durations else 0.0
 
     def _step_bits(self, link_events: dict) -> tuple[float, float, float]:
         bits_mld_24 = 0.0
@@ -118,6 +120,8 @@ class MbpsAccumulator:
         self.total_step_slots += step_slots * fraction
         for link_id in (0, 1):
             result = link_events[link_id]["result"]
+            if result == "not_ready":
+                continue
             if result in self.event_counts[link_id]:
                 self.event_counts[link_id][result] += fraction
             success_type = link_events[link_id].get("success_type")
