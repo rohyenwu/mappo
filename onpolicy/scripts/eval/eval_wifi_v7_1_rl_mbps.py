@@ -141,6 +141,7 @@ def main(args):
         round_count = 1
         last_infos = None
         prev_link_successes = env.link_successes.copy()
+        prev_link_packet_successes = env.link_packet_successes.copy()
         prev_sld_success = int(env.round_sld_success)
 
         while not accumulator.done():
@@ -183,8 +184,8 @@ def main(args):
             episode_reward_total += float(np.sum(rewards))
             last_infos = infos
 
-            link_events, prev_link_successes, prev_sld_success = infer_link_events(
-                env, infos, prev_link_successes, prev_sld_success
+            link_events, prev_link_successes, prev_sld_success, prev_link_packet_successes = infer_link_events(
+                env, infos, prev_link_successes, prev_sld_success, prev_link_packet_successes
             )
             step_slots = infos[0].get("step_slots", env.last_step_slots) if infos else env.last_step_slots
             accumulator.add_step(link_events, step_slots=step_slots)
@@ -198,6 +199,7 @@ def main(args):
                 rnn_states[:] = 0.0
                 masks = env.get_active_masks()
                 prev_link_successes = env.link_successes.copy()
+                prev_link_packet_successes = env.link_packet_successes.copy()
                 prev_sld_success = int(env.round_sld_success)
             else:
                 masks = env.get_active_masks()

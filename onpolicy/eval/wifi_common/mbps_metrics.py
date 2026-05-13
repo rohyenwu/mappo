@@ -90,13 +90,14 @@ class MbpsAccumulator:
             if link_events[link_id]["result"] != "success":
                 continue
             success_type = link_events[link_id]["success_type"]
+            packet_count = float(link_events[link_id].get("packet_count", 1.0))
             if success_type == "mld":
                 if link_id == 0:
-                    bits_mld_24 += self.time_model.payload_bits
+                    bits_mld_24 += packet_count * self.time_model.payload_bits
                 else:
-                    bits_mld_5 += self.time_model.payload_bits
+                    bits_mld_5 += packet_count * self.time_model.payload_bits
             elif success_type == "sld":
-                bits_sld += self.time_model.payload_bits
+                bits_sld += packet_count * self.time_model.payload_bits
 
         return bits_mld_24, bits_mld_5, bits_sld
 
@@ -200,12 +201,14 @@ class MbpsAccumulator:
         return metrics
 
 
-def infer_link_events(env, infos, prev_link_successes, prev_sld_success):
+def infer_link_events(env, infos, prev_link_successes, prev_sld_success, prev_link_packet_successes):
     """Infer per-link idle/success/collision and success owner from env deltas."""
 
     curr_link_successes = env.link_successes.copy()
+    curr_link_packet_successes = getattr(env, "link_packet_successes", curr_link_successes).copy()
     curr_sld_success = int(env.round_sld_success)
     delta_link_successes = curr_link_successes - prev_link_successes
+    delta_link_packet_successes = curr_link_packet_successes - prev_link_packet_successes
     delta_sld_success = curr_sld_success - prev_sld_success
 
     link_events = {}
@@ -216,18 +219,26 @@ def infer_link_events(env, infos, prev_link_successes, prev_sld_success):
             result = str(infos[active_aids[0]].get("txop_result", "idle"))
 
         success_type = None
+        packet_count = 0.0
         if result == "success":
             if link_id == 0 and delta_sld_success > 0 and int(delta_link_successes[:, 0].sum()) == 0:
                 success_type = "sld"
+                packet_count = float(delta_sld_success)
             elif int(delta_link_successes[:, link_id].sum()) > 0:
                 success_type = "mld"
+                if hasattr(env, "link_packet_successes"):
+                    successful_mlds = np.flatnonzero(delta_link_successes[:, link_id] > 0)
+                    packet_count = float(delta_link_packet_successes[successful_mlds, link_id].sum())
+                else:
+                    packet_count = float(delta_link_successes[:, link_id].sum())
 
         link_events[link_id] = {
             "result": result,
             "success_type": success_type,
+            "packet_count": packet_count,
         }
 
-    return link_events, curr_link_successes, curr_sld_success
+    return link_events, curr_link_successes, curr_sld_success, curr_link_packet_successes
 
 
 def save_mbps_bar_chart(run_dir: Path, filename: str, summary: dict):
