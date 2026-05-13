@@ -7,7 +7,8 @@ SLD_CW_MIN = 16
 SLD_CW_MAX = 1024
 SLD_RETRY_LIMIT = 6
 DIFS_SLOTS = 2
-LINK_TX_BUSY_SLOTS = np.array([2, 1], dtype=np.int32)
+LINK_SUCCESS_BUSY_SLOTS = np.array([136, 72], dtype=np.int32)
+LINK_COLLISION_BUSY_SLOTS = np.array([134, 70], dtype=np.int32)
 
 
 class WiFiEnvV9:
@@ -18,6 +19,8 @@ class WiFiEnvV9:
     - keep the same observation/reward surface for MAPPO compatibility
     - let 2.4GHz and 5GHz reach access opportunities independently
     - process only the links that are ready in the current environment step
+    - model higher 5GHz capacity through shorter per-link busy durations,
+      not by serving multiple packets in one success
     """
 
     def __init__(
@@ -520,8 +523,7 @@ class WiFiEnvV9:
             if success_aid is not None:
                 mld_id, success_link_id = self.agent_to_mld_link[success_aid]
                 if self.D[mld_id] > self.S[mld_id]:
-                    packet_gain = 2 if success_link_id == 1 else 1
-                    served_packets = min(packet_gain, self.D[mld_id] - self.S[mld_id])
+                    served_packets = 1
                     self.S[mld_id] += served_packets
                     self.link_successes[mld_id, link_id] += 1
                     self.link_packet_successes[mld_id, link_id] += served_packets
@@ -537,8 +539,11 @@ class WiFiEnvV9:
 
             self._update_sld_after_event(result, sld_txers)
 
-            if result != "idle":
-                self.link_busy_slots[link_id] = int(LINK_TX_BUSY_SLOTS[link_id])
+            if result == "success":
+                self.link_busy_slots[link_id] = int(LINK_SUCCESS_BUSY_SLOTS[link_id])
+                self.link_idle_slots[link_id] = 0
+            elif result == "collision":
+                self.link_busy_slots[link_id] = int(LINK_COLLISION_BUSY_SLOTS[link_id])
                 self.link_idle_slots[link_id] = 0
 
             usage = 0.0 if result == "idle" else 1.0
