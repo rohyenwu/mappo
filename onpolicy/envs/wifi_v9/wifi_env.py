@@ -41,6 +41,8 @@ class WiFiEnvV9:
         theta_scale: float = 1.0,
         sld_target_low_scale: float = 0.5,
         sld_target_high_scale: float = 0.7,
+        slot_time_sec: float = 9e-6,
+        episode_duration_sec=None,
         gamma: float = 0.99,
     ):
         del sld_mu, f_func, g_func, gamma
@@ -82,6 +84,19 @@ class WiFiEnvV9:
         self.theta_scale = theta_scale
         self.sld_target_low_scale = sld_target_low_scale
         self.sld_target_high_scale = sld_target_high_scale
+        self.slot_time_sec = float(slot_time_sec)
+        self.episode_duration_sec = (
+            None if episode_duration_sec is None else float(episode_duration_sec)
+        )
+        if self.slot_time_sec <= 0.0:
+            raise ValueError("slot_time_sec must be positive")
+        if self.episode_duration_sec is not None and self.episode_duration_sec <= 0.0:
+            raise ValueError("episode_duration_sec must be positive when set")
+        self.episode_duration_slots = (
+            None
+            if self.episode_duration_sec is None
+            else max(int(np.ceil(self.episode_duration_sec / self.slot_time_sec)), 1)
+        )
 
         self.num_links = 2
         self.n_sld_per_link = [self.active_sld, 0]
@@ -553,7 +568,7 @@ class WiFiEnvV9:
             )
 
         self.t += int(np.count_nonzero(current_ready_links))
-        done = self.t >= self.round_length
+        done = self._is_done()
 
         if done:
             reward_sparse = self._apply_sparse_reward_with_trace(rewards)
@@ -651,6 +666,11 @@ class WiFiEnvV9:
                 sparse_rewards[aid] -= penalty
 
         return sparse_rewards
+
+    def _is_done(self):
+        if self.episode_duration_slots is not None:
+            return self.total_slots_elapsed >= self.episode_duration_slots
+        return self.t >= self.round_length
 
     def close(self):
         pass

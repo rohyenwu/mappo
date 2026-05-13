@@ -55,6 +55,8 @@ def make_env(all_args, seed_offset: int):
                 theta_scale=all_args.theta_scale,
                 sld_target_low_scale=all_args.sld_target_low_scale,
                 sld_target_high_scale=all_args.sld_target_high_scale,
+                slot_time_sec=all_args.slot_time_sec,
+                episode_duration_sec=all_args.episode_duration_sec,
             )
             env.seed(seed_offset + rank * 1000)
             return env
@@ -146,6 +148,21 @@ def parse_args(args, parser):
         help="Number of WiFi rounds to collect before each policy update",
     )
     parser.add_argument(
+        "--slot_time_sec",
+        type=float,
+        default=9e-6,
+        help="Duration of one simulated slot in seconds for fixed-time v9 episodes.",
+    )
+    parser.add_argument(
+        "--episode_duration_sec",
+        type=float,
+        default=None,
+        help=(
+            "If set, end each WiFi v9 episode after this much simulated time "
+            "instead of after round_length ready-link events."
+        ),
+    )
+    parser.add_argument(
         "--wandb_project",
         type=str,
         default="wifi_v9",
@@ -196,6 +213,8 @@ def main(args):
     all_args.num_mld = all_args.max_mld
     all_args.num_sld = all_args.max_sld
     all_args.episode_length = all_args.round_length * all_args.rounds_per_update
+    if all_args.episode_duration_sec is not None and all_args.episode_duration_sec <= 0.0:
+        raise ValueError("--episode_duration_sec must be positive when set")
 
     if all_args.algorithm_name == "rmappo":
         all_args.use_recurrent_policy = True
