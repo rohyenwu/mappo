@@ -3,7 +3,7 @@
 import numpy as np
 from gym import spaces
 
-SLD_CW_MIN = 8
+SLD_CW_MIN = 16
 SLD_CW_MAX = 1024
 SLD_RETRY_LIMIT = 6
 DIFS_SLOTS = 2
