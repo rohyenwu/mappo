@@ -55,6 +55,7 @@ def make_env(all_args, seed_offset: int):
                 theta_scale=all_args.theta_scale,
                 sld_target_low_scale=all_args.sld_target_low_scale,
                 sld_target_high_scale=all_args.sld_target_high_scale,
+                sld_target_bonus=all_args.sld_target_bonus,
                 slot_time_sec=all_args.slot_time_sec,
                 episode_duration_sec=all_args.episode_duration_sec,
             )
@@ -140,6 +141,12 @@ def parse_args(args, parser):
         type=float,
         default=0.7,
         help="Upper SLD target multiplier applied to SLD/(SLD+MLD_2.4GHz).",
+    )
+    parser.add_argument(
+        "--sld_target_bonus",
+        type=float,
+        default=0.0,
+        help="Terminal sparse bonus for 2.4GHz MLD agents when SLD success is inside the target range.",
     )
     parser.add_argument(
         "--rounds_per_update",
