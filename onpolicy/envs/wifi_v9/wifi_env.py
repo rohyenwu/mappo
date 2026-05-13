@@ -509,7 +509,7 @@ class WiFiEnvV9:
                 elif aid == top_aid:
                     r_local = 1.0 if transmitted else -(1.0 + urgency)
                 else:
-                    r_local = -1.0 if transmitted else 1.0
+                    r_local = -0.5 if transmitted else urgency
 
                 rewards[aid, 0] = r_global + r_local
                 reward_global[aid] = r_global
