@@ -56,6 +56,7 @@ def make_env(all_args, seed_offset: int):
                 sld_target_low_scale=all_args.sld_target_low_scale,
                 sld_target_high_scale=all_args.sld_target_high_scale,
                 sld_target_bonus=all_args.sld_target_bonus,
+                mld_success_reward=all_args.mld_success_reward,
                 slot_time_sec=all_args.slot_time_sec,
                 episode_duration_sec=all_args.episode_duration_sec,
             )
@@ -147,6 +148,12 @@ def parse_args(args, parser):
         type=float,
         default=0.0,
         help="Terminal sparse bonus for 2.4GHz MLD agents when SLD success is inside the target range.",
+    )
+    parser.add_argument(
+        "--mld_success_reward",
+        type=float,
+        default=1.0,
+        help="Global reward scale for successful MLD transmissions.",
     )
     parser.add_argument(
         "--rounds_per_update",

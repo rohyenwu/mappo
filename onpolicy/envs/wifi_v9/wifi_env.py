@@ -42,6 +42,7 @@ class WiFiEnvV9:
         sld_target_low_scale: float = 0.5,
         sld_target_high_scale: float = 0.7,
         sld_target_bonus: float = 0.0,
+        mld_success_reward: float = 1.0,
         slot_time_sec: float = 9e-6,
         episode_duration_sec=None,
         gamma: float = 0.99,
@@ -86,6 +87,7 @@ class WiFiEnvV9:
         self.sld_target_low_scale = sld_target_low_scale
         self.sld_target_high_scale = sld_target_high_scale
         self.sld_target_bonus = float(sld_target_bonus)
+        self.mld_success_reward = float(mld_success_reward)
         self.slot_time_sec = float(slot_time_sec)
         self.episode_duration_sec = (
             None if episode_duration_sec is None else float(episode_duration_sec)
@@ -508,7 +510,11 @@ class WiFiEnvV9:
             top_aid = self._get_link_top_urgency_agent(link_id, urgencies)
 
             if result == "success" and not success_is_sld:
-                r_global = 1.0 if success_aid == top_aid else urgencies.get(success_aid, 0.0)
+                r_global = (
+                    self.mld_success_reward
+                    if success_aid == top_aid
+                    else self.mld_success_reward * urgencies.get(success_aid, 0.0)
+                )
             elif result == "success" and success_is_sld:
                 r_global = 0.0
             elif result == "collision":
