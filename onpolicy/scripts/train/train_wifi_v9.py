@@ -38,13 +38,19 @@ def parse_scenario_profile(profile_text):
 def make_env(all_args, seed_offset: int):
     mu_profile = parse_mu_profile(getattr(all_args, "mu_profile", None))
     scenario_profile = parse_scenario_profile(getattr(all_args, "scenario_profile", None))
+    scenario_order = getattr(all_args, "scenario_order", "sequential")
 
     def get_env_fn(rank: int):
         def init_env():
+            env_scenario_profile = scenario_profile
+            if scenario_order == "parallel":
+                env_scenario_profile = [
+                    scenario_profile[rank % len(scenario_profile)]
+                ]
             env = WiFiEnvV9(
                 max_mld=all_args.max_mld,
                 max_sld=all_args.max_sld,
-                scenario_profile=scenario_profile,
+                scenario_profile=env_scenario_profile,
                 round_length=all_args.round_length,
                 mu_range=(all_args.mu_min, all_args.mu_max),
                 mu_profile=mu_profile,
@@ -98,8 +104,12 @@ def parse_args(args, parser):
         "--scenario_order",
         type=str,
         default="sequential",
-        choices=["sequential"],
-        help="Scenario order. v9 initially supports sequential order only.",
+        choices=["sequential", "parallel"],
+        help=(
+            "Scenario scheduling. 'sequential' rotates every "
+            "scenario_interval_episodes; 'parallel' fixes one scenario per "
+            "rollout env and batches them in each MAPPO update."
+        ),
     )
     parser.add_argument(
         "--scenario_interval_episodes",
@@ -213,6 +223,32 @@ def main(args):
         raise ValueError("--scenario_interval_episodes must be >= 1")
 
     scenarios = parse_scenario_profile(all_args.scenario_profile)
+    if all_args.scenario_order == "parallel":
+        if all_args.n_rollout_threads < len(scenarios):
+            raise ValueError(
+                "--scenario_order parallel requires at least as many rollout "
+                "threads as scenarios. Use --n_rollout_threads "
+                f"{len(scenarios)} for this profile."
+            )
+        if all_args.n_rollout_threads % len(scenarios) != 0:
+            raise ValueError(
+                "--scenario_order parallel requires n_rollout_threads to be a "
+                "multiple of the number of scenarios so each scenario has the "
+                "same number of envs."
+            )
+        if all_args.use_eval:
+            if all_args.n_eval_rollout_threads < len(scenarios):
+                raise ValueError(
+                    "--scenario_order parallel with --use_eval requires at least "
+                    "as many eval rollout threads as scenarios."
+                )
+            if all_args.n_eval_rollout_threads % len(scenarios) != 0:
+                raise ValueError(
+                    "--scenario_order parallel with --use_eval requires "
+                    "n_eval_rollout_threads to be a multiple of the number of "
+                    "scenarios."
+                )
+
     max_profile_mld = max(active_mld for active_mld, _ in scenarios)
     max_profile_sld = max(active_sld for _, active_sld in scenarios)
     if max_profile_mld > all_args.max_mld:
@@ -229,6 +265,22 @@ def main(args):
     all_args.episode_length = all_args.round_length * all_args.rounds_per_update
     if all_args.episode_duration_sec is not None and all_args.episode_duration_sec <= 0.0:
         raise ValueError("--episode_duration_sec must be positive when set")
+
+    rollout_batch_steps = all_args.episode_length * all_args.n_rollout_threads
+    approx_agent_steps = rollout_batch_steps * all_args.num_mld * 2
+    planned_updates = int(all_args.num_env_steps) // max(rollout_batch_steps, 1)
+    print(
+        "[WiFi-v9] rollout setup: "
+        f"scenario_order={all_args.scenario_order}, "
+        f"scenarios={scenarios}, "
+        f"n_rollout_threads={all_args.n_rollout_threads}, "
+        f"episode_length={all_args.episode_length}, "
+        f"samples_per_update={rollout_batch_steps}, "
+        f"approx_agent_steps_per_update={approx_agent_steps}, "
+        f"planned_updates={planned_updates}, "
+        f"num_mini_batch={all_args.num_mini_batch}, "
+        f"ppo_epoch={all_args.ppo_epoch}"
+    )
 
     if all_args.algorithm_name == "rmappo":
         all_args.use_recurrent_policy = True

@@ -335,6 +335,17 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
             remote.send(env.get_throughput())
         elif cmd == 'get_collision_rate':
             remote.send(env.get_collision_rate())
+        elif cmd == 'get_env_metrics':
+            method_name = data
+            allowed_methods = {
+                'get_throughput',
+                'get_collision_rate',
+                'get_allocation_metrics',
+            }
+            if method_name in allowed_methods and hasattr(env, method_name):
+                remote.send(getattr(env, method_name)())
+            else:
+                remote.send(None)
         elif cmd == 'get_active_masks':
             if hasattr(env, 'get_active_masks'):
                 remote.send(env.get_active_masks())
@@ -408,6 +419,16 @@ class ShareSubprocVecEnv(ShareVecEnv):
         """첫 번째 env의 collision_rate 반환 (WiFi 전용)."""
         self.remotes[0].send(('get_collision_rate', None))
         return self.remotes[0].recv()
+
+    def get_env_metrics(self, method_name):
+        results = []
+        for remote in self.remotes:
+            remote.send(('get_env_metrics', method_name))
+        for remote in self.remotes:
+            result = remote.recv()
+            if result is not None:
+                results.append(result)
+        return results
 
     def get_active_masks(self):
         results = []
@@ -795,6 +816,20 @@ class ShareDummyVecEnv(ShareVecEnv):
     def get_collision_rate(self):
         """첫 번째 env의 collision_rate 반환 (WiFi 전용)."""
         return self.envs[0].get_collision_rate()
+
+    def get_env_metrics(self, method_name):
+        allowed_methods = {
+            'get_throughput',
+            'get_collision_rate',
+            'get_allocation_metrics',
+        }
+        if method_name not in allowed_methods:
+            return []
+        return [
+            getattr(env, method_name)()
+            for env in self.envs
+            if hasattr(env, method_name)
+        ]
 
     def get_active_masks(self):
         if not hasattr(self.envs[0], "get_active_masks"):

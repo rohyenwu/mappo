@@ -215,20 +215,26 @@ Saved at: {saved_at}
 
     def _mean_env_metric(self, env_collection, method_name):
         """Average a dict metric returned by each underlying environment."""
-        if env_collection is None or not hasattr(env_collection, "envs"):
+        if env_collection is None:
             return {}
 
+        if hasattr(env_collection, "get_env_metrics"):
+            metric_dicts = env_collection.get_env_metrics(method_name)
+        elif hasattr(env_collection, "envs"):
+            metric_dicts = [
+                getattr(env, method_name)()
+                for env in env_collection.envs
+                if hasattr(env, method_name)
+            ]
+        else:
+            metric_dicts = []
+
         aggregated = {}
-        count = 0
-        for env in env_collection.envs:
-            if not hasattr(env, method_name):
-                continue
-            metrics = getattr(env, method_name)()
+        for metrics in metric_dicts:
             for key, value in metrics.items():
                 aggregated.setdefault(key, []).append(float(value))
-            count += 1
 
-        if count == 0:
+        if not aggregated:
             return {}
 
         return {key: float(np.mean(values)) for key, values in aggregated.items()}
@@ -373,13 +379,12 @@ Saved at: {saved_at}
                         if values:
                             train_infos[key] = float(np.mean(values))
 
-                env0 = self.envs.envs[0]
-                tp = env0.get_throughput()
+                tp = self._mean_env_metric(self.envs, "get_throughput")
                 for k, v in tp.items():
                     print(f"  {k}: {v:.4f}")
                     train_infos[k] = v
 
-                cr = env0.get_collision_rate()
+                cr = self._mean_env_metric(self.envs, "get_collision_rate")
                 for k, v in cr.items():
                     print(f"  {k}: {v:.4f}")
                     train_infos[k] = v
@@ -438,6 +443,8 @@ Saved at: {saved_at}
         self.buffer.rnn_states_critic[0] = np.zeros_like(self.buffer.rnn_states_critic[0])
 
     def _maybe_update_scenario(self, episode):
+        if getattr(self.all_args, "scenario_order", "sequential") == "parallel":
+            return
         if not hasattr(self.envs, "set_scenario_by_episode"):
             return
         interval = getattr(self.all_args, "scenario_interval_episodes", None)
