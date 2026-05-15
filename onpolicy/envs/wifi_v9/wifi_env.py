@@ -43,6 +43,7 @@ class WiFiEnvV9:
         sld_target_high_scale: float = 0.7,
         sld_target_bonus: float = 0.0,
         mld_success_reward: float = 1.0,
+        collision_penalty: float = 1.0,
         slot_time_sec: float = 9e-6,
         episode_duration_sec=None,
         gamma: float = 0.99,
@@ -88,6 +89,7 @@ class WiFiEnvV9:
         self.sld_target_high_scale = sld_target_high_scale
         self.sld_target_bonus = float(sld_target_bonus)
         self.mld_success_reward = float(mld_success_reward)
+        self.collision_penalty = float(collision_penalty)
         self.slot_time_sec = float(slot_time_sec)
         self.episode_duration_sec = (
             None if episode_duration_sec is None else float(episode_duration_sec)
@@ -119,7 +121,7 @@ class WiFiEnvV9:
 
         self.usage_ema_alpha = 0.2
 
-        self.obs_dim = 10
+        self.obs_dim = 11
         obs_low = np.zeros(self.obs_dim, dtype=np.float32)
         obs_high = np.ones(self.obs_dim, dtype=np.float32)
         self.observation_space = [
@@ -213,6 +215,7 @@ class WiFiEnvV9:
         self.link_attempts = np.zeros((self.num_mld, 2), dtype=np.int32)
         self.last_round_link_attempts = np.zeros((self.num_mld, 2), dtype=np.int32)
         self.prev_actions = np.zeros(self.num_agents, dtype=np.int32)
+        self.d2lt_slots = np.zeros(self.num_agents, dtype=np.int32)
 
         self.round_collisions = np.zeros(2, dtype=np.int32)
         self.round_mld_transmissions = np.zeros(2, dtype=np.int32)
@@ -235,6 +238,7 @@ class WiFiEnvV9:
         self.link_packet_successes[:] = 0
         self.link_attempts[:] = 0
         self.prev_actions[:] = 0
+        self.d2lt_slots[:] = 0
         self.round_sld_success = 0
         self.round_collisions[:] = 0
         self.round_mld_transmissions[:] = 0
@@ -340,6 +344,7 @@ class WiFiEnvV9:
             busy_flag = float(self.link_busy_slots[link_id] > 0)
             idle_progress = min(self.link_idle_slots[link_id], DIFS_SLOTS) / float(DIFS_SLOTS)
             link_usage_ema = float(self.link_usage_ema[link_id])
+            d2lt_self = min(self.d2lt_slots[aid], self.round_length) / float(max(self.round_length, 1))
             link_onehot = [1.0, 0.0] if link_id == 0 else [0.0, 1.0]
             obs[aid] = [
                 shared_load,
@@ -350,6 +355,7 @@ class WiFiEnvV9:
                 busy_flag,
                 idle_progress,
                 link_usage_ema,
+                d2lt_self,
                 *link_onehot,
             ]
         return obs
@@ -423,6 +429,11 @@ class WiFiEnvV9:
             if np.any(ready_links):
                 self.last_step_slots = slots_advanced
                 self.last_ready_links = ready_links
+                active_mask = np.array(
+                    [self._is_active_agent(aid) for aid in range(self.num_agents)],
+                    dtype=bool,
+                )
+                self.d2lt_slots[active_mask] += slots_advanced
                 return
 
     def _get_sld_transmitters(self, link_id):
@@ -527,7 +538,7 @@ class WiFiEnvV9:
             elif result == "success" and success_is_sld:
                 r_global = 0.0
             elif result == "collision":
-                r_global = -1.0
+                r_global = -self.collision_penalty
             else:
                 r_global = -self.c_idle
 
@@ -559,6 +570,7 @@ class WiFiEnvV9:
                     self.S[mld_id] += served_packets
                     self.link_successes[mld_id, link_id] += 1
                     self.link_packet_successes[mld_id, link_id] += served_packets
+                    self.d2lt_slots[success_aid] = 0
 
             for aid in mld_txers:
                 mld_id, _ = self.agent_to_mld_link[aid]

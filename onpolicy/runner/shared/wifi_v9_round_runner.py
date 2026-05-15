@@ -112,6 +112,21 @@ class WiFiV9RoundRunner(WiFiV2Runner):
                 else:
                     avg_reward = avg_reward_pos = avg_reward_neg = 0.0
 
+                flat_actions = self.buffer.actions[:used_steps].flatten().astype(int)
+                transmit_ratio = (
+                    float((flat_actions == 1).sum()) / float(max(len(flat_actions), 1))
+                )
+
+                avg_fulfillment = 0.0
+                if infos is not None:
+                    fulfillments = [
+                        info.get("fulfillment", 0.0)
+                        for env_infos in infos
+                        for info in env_infos
+                        if info.get("active", True)
+                    ]
+                    avg_fulfillment = float(np.mean(fulfillments)) if fulfillments else 0.0
+
                 print(
                     f"\n[WiFi-v9] Update {update_idx}/{updates} | "
                     f"Steps {total_num_steps}/{self.num_env_steps} | FPS {fps}"
@@ -124,13 +139,20 @@ class WiFiV9RoundRunner(WiFiV2Runner):
                     f"  avg reward:      {avg_reward:.4f} "
                     f"(pos: {avg_reward_pos:.4f}, neg: {avg_reward_neg:.4f})"
                 )
+                print(f"  transmit ratio:  {transmit_ratio:.4f}")
+                print(f"  avg fulfillment: {avg_fulfillment:.4f}")
 
                 train_infos["average_step_rewards"] = avg_reward
+                train_infos["average_step_rewards_pos"] = avg_reward_pos
+                train_infos["average_step_rewards_neg"] = avg_reward_neg
+                train_infos["transmit_ratio"] = transmit_ratio
+                train_infos["avg_fulfillment"] = avg_fulfillment
+                train_infos["rollout_reward/total_active"] = float(np.sum(active_rewards))
+                train_infos["rollout_reward/mean_active"] = avg_reward
                 train_infos["rounds/target_per_update"] = float(target_rounds)
                 train_infos["rounds/used_steps"] = float(used_steps)
                 train_infos["rounds/min_completed"] = float(np.min(completed_rounds))
                 train_infos["rounds/max_completed"] = float(np.max(completed_rounds))
-                self.log_train(train_infos, total_num_steps)
 
                 tp = self._mean_env_metric(self.envs, "get_throughput")
                 for k, v in tp.items():
@@ -140,6 +162,11 @@ class WiFiV9RoundRunner(WiFiV2Runner):
                 for k, v in cr.items():
                     train_infos[f"collision/{k}"] = v
 
+                alloc = self._mean_env_metric(self.envs, "get_allocation_metrics")
+                for k, v in alloc.items():
+                    train_infos[f"allocation/{k}"] = v
+
+                self.log_train(train_infos, total_num_steps)
                 self._save_csv(total_num_steps, train_infos)
 
             if self.use_eval and update_idx % self.eval_interval == 0:
