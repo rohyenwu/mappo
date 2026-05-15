@@ -46,6 +46,8 @@ def make_wifi_env(args, seed: int):
         sld_target_high_scale=args.sld_target_high_scale,
         sld_target_bonus=args.sld_target_bonus,
         mld_success_reward=args.mld_success_reward,
+        slot_time_sec=args.slot_time_sec,
+        episode_duration_sec=args.eval_duration_sec * 100.0,
     )
     env.seed(seed)
     return env
@@ -151,6 +153,7 @@ def main(args):
         prev_link_successes = env.link_successes.copy()
         prev_link_packet_successes = env.link_packet_successes.copy()
         prev_sld_success = int(env.round_sld_success)
+        next_arrival_step = int(all_args.round_length)
 
         while not accumulator.done():
             if episode == 0 and env.t < all_args.debug_prob_steps:
@@ -198,17 +201,17 @@ def main(args):
             step_slots = infos[0].get("step_slots", env.last_step_slots) if infos else env.last_step_slots
             accumulator.add_step(link_events, step_slots=step_slots)
 
+            while env.t >= next_arrival_step:
+                env.add_packet_arrivals(all_args.round_length)
+                next_arrival_step += int(all_args.round_length)
+
             if bool(np.all(dones)):
                 if accumulator.done():
                     break
-                round_count += 1
-                obs, share_obs, available_actions = env.reset()
-                del share_obs
-                rnn_states[:] = 0.0
-                masks = env.get_active_masks()
-                prev_link_successes = env.link_successes.copy()
-                prev_link_packet_successes = env.link_packet_successes.copy()
-                prev_sld_success = int(env.round_sld_success)
+                raise RuntimeError(
+                    "WiFi v9 Mbps eval reached env done before the fixed-duration "
+                    "accumulator finished; increase the eval episode duration guard."
+                )
             else:
                 masks = env.get_active_masks()
 

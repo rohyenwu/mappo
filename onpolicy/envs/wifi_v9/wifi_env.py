@@ -280,6 +280,15 @@ class WiFiEnvV9:
                 for link_id in range(self.num_links)
             )
 
+    def add_packet_arrivals(self, arrival_window=None):
+        window = self.round_length if arrival_window is None else int(arrival_window)
+        window = max(window, 1)
+        for mld_id in range(self.active_mld):
+            self.D[mld_id] += sum(
+                np.random.binomial(window, self.mu[mld_id, link_id])
+                for link_id in range(self.num_links)
+            )
+
     def _get_fulfillment(self, mld_id, link_id):
         del link_id
         demand = self.D[mld_id]
@@ -637,11 +646,12 @@ class WiFiEnvV9:
 
         n_mld_24 = len(self._active_link_agents(0))
         base_theta = self.active_sld / max(self.active_sld + n_mld_24, 1)
+        reward_window = max(float(self.t), 1.0)
         target_low = (
-            self.theta_scale * self.sld_target_low_scale * base_theta * self.round_length
+            self.theta_scale * self.sld_target_low_scale * base_theta * reward_window
         )
         target_high = (
-            self.theta_scale * self.sld_target_high_scale * base_theta * self.round_length
+            self.theta_scale * self.sld_target_high_scale * base_theta * reward_window
         )
         if target_low > target_high:
             target_low, target_high = target_high, target_low
@@ -659,11 +669,9 @@ class WiFiEnvV9:
         p_avg = np.mean(participations) if participations else 0
         skip_avg = np.mean(skips) if skips else 0
 
-        round_length = max(float(self.round_length), 1.0)
-
         for idx, aid in enumerate(link_0_aids):
-            participation_ratio_gap = max(0.0, (participations[idx] - p_avg) / round_length)
-            skip_ratio_gap = max(0.0, (skips[idx] - skip_avg) / round_length)
+            participation_ratio_gap = max(0.0, (participations[idx] - p_avg) / reward_window)
+            skip_ratio_gap = max(0.0, (skips[idx] - skip_avg) / reward_window)
             if actual_sld_success < target_low:
                 penalty = self.eta * participation_ratio_gap
                 rewards[aid, 0] -= penalty
