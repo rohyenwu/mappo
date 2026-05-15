@@ -169,7 +169,16 @@ def parse_args(args, parser):
         "--rounds_per_update",
         type=int,
         default=1,
-        help="Number of WiFi rounds to collect before each policy update",
+        help="Number of completed fixed-time WiFi rounds to collect before each policy update",
+    )
+    parser.add_argument(
+        "--rollout_steps_per_update",
+        type=int,
+        default=None,
+        help=(
+            "Maximum decision-step buffer length per rollout env for each PPO "
+            "update. Defaults to round_length * rounds_per_update."
+        ),
     )
     parser.add_argument(
         "--slot_time_sec",
@@ -262,7 +271,13 @@ def main(args):
 
     all_args.num_mld = all_args.max_mld
     all_args.num_sld = all_args.max_sld
-    all_args.episode_length = all_args.round_length * all_args.rounds_per_update
+    if all_args.rollout_steps_per_update is not None and all_args.rollout_steps_per_update < 1:
+        raise ValueError("--rollout_steps_per_update must be >= 1 when set")
+    all_args.episode_length = (
+        all_args.rollout_steps_per_update
+        if all_args.rollout_steps_per_update is not None
+        else all_args.round_length * all_args.rounds_per_update
+    )
     if all_args.episode_duration_sec is not None and all_args.episode_duration_sec <= 0.0:
         raise ValueError("--episode_duration_sec must be positive when set")
 
@@ -274,7 +289,8 @@ def main(args):
         f"scenario_order={all_args.scenario_order}, "
         f"scenarios={scenarios}, "
         f"n_rollout_threads={all_args.n_rollout_threads}, "
-        f"episode_length={all_args.episode_length}, "
+        f"target_rounds_per_update={all_args.rounds_per_update}, "
+        f"max_rollout_steps_per_env={all_args.episode_length}, "
         f"samples_per_update={rollout_batch_steps}, "
         f"approx_agent_steps_per_update={approx_agent_steps}, "
         f"planned_updates={planned_updates}, "
@@ -376,7 +392,7 @@ def main(args):
         "save_dir": model_save_dir,
     }
 
-    from onpolicy.runner.shared.wifi_v3_runner import WiFiV2Runner as Runner
+    from onpolicy.runner.shared.wifi_v9_round_runner import WiFiV9RoundRunner as Runner
 
     runner = Runner(config)
     runner.run()
