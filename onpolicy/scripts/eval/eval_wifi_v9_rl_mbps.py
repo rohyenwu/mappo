@@ -47,6 +47,7 @@ def make_wifi_env(args, seed: int):
         sld_target_bonus=args.sld_target_bonus,
         mld_success_reward=args.mld_success_reward,
         collision_penalty=args.collision_penalty,
+        non_top_tx_penalty=args.non_top_tx_penalty,
         slot_time_sec=args.slot_time_sec,
         episode_duration_sec=args.eval_duration_sec * 100.0,
     )
@@ -89,6 +90,7 @@ def parse_args(args, parser):
     parser.add_argument("--sld_target_bonus", type=float, default=0.0)
     parser.add_argument("--mld_success_reward", type=float, default=1.0)
     parser.add_argument("--collision_penalty", type=float, default=1.0)
+    parser.add_argument("--non_top_tx_penalty", type=float, default=0.5)
     parser.add_argument("--eval_duration_sec", type=float, default=30.0)
     parser.add_argument("--slot_time_sec", type=float, default=9e-6)
     parser.add_argument("--phy_preamble_sec", type=float, default=20e-6)

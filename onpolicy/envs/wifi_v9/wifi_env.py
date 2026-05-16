@@ -44,6 +44,7 @@ class WiFiEnvV9:
         sld_target_bonus: float = 0.0,
         mld_success_reward: float = 1.0,
         collision_penalty: float = 1.0,
+        non_top_tx_penalty: float = 0.5,
         slot_time_sec: float = 9e-6,
         episode_duration_sec=None,
         gamma: float = 0.99,
@@ -90,6 +91,7 @@ class WiFiEnvV9:
         self.sld_target_bonus = float(sld_target_bonus)
         self.mld_success_reward = float(mld_success_reward)
         self.collision_penalty = float(collision_penalty)
+        self.non_top_tx_penalty = float(non_top_tx_penalty)
         self.slot_time_sec = float(slot_time_sec)
         self.episode_duration_sec = (
             None if episode_duration_sec is None else float(episode_duration_sec)
@@ -555,7 +557,7 @@ class WiFiEnvV9:
                 elif aid == top_aid:
                     r_local = 1.0 if transmitted else -(1.0 + urgency)
                 else:
-                    r_local = -0.5 if transmitted else urgency
+                    r_local = -self.non_top_tx_penalty if transmitted else urgency
 
                 rewards[aid, 0] = r_global + r_local
                 reward_global[aid] = r_global

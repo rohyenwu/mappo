@@ -64,6 +64,7 @@ def make_env(all_args, seed_offset: int):
                 sld_target_bonus=all_args.sld_target_bonus,
                 mld_success_reward=all_args.mld_success_reward,
                 collision_penalty=all_args.collision_penalty,
+                non_top_tx_penalty=all_args.non_top_tx_penalty,
                 slot_time_sec=all_args.slot_time_sec,
                 episode_duration_sec=all_args.episode_duration_sec,
             )
@@ -171,6 +172,12 @@ def parse_args(args, parser):
         type=float,
         default=1.0,
         help="Global penalty magnitude for a collision event.",
+    )
+    parser.add_argument(
+        "--non_top_tx_penalty",
+        type=float,
+        default=0.5,
+        help="Local penalty magnitude when a non-top-urgency MLD transmits.",
     )
     parser.add_argument(
         "--rounds_per_update",
