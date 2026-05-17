@@ -10,7 +10,6 @@ from onpolicy.envs.wifi_v9.wifi_env import WiFiEnvV9
 from onpolicy.eval.wifi_common.mbps_metrics import (
     MbpsAccumulator,
     MbpsTimeModel,
-    add_mu_representative_metrics,
     infer_link_events,
     save_mbps_bar_chart,
 )
@@ -41,14 +40,6 @@ def make_wifi_env(args, seed: int):
         r_sld=args.r_sld,
         c_idle=args.c_idle,
         theta_scale=args.theta_scale,
-        sld_target_low_scale=args.sld_target_low_scale,
-        sld_target_high_scale=args.sld_target_high_scale,
-        sld_target_bonus=args.sld_target_bonus,
-        mld_success_reward=args.mld_success_reward,
-        collision_penalty=args.collision_penalty,
-        non_top_tx_penalty=args.non_top_tx_penalty,
-        slot_time_sec=args.slot_time_sec,
-        episode_duration_sec=args.eval_duration_sec * 100.0,
     )
     env.seed(seed)
     return env
@@ -84,12 +75,6 @@ def parse_args(args, parser):
     parser.add_argument("--r_sld", type=float, default=0.3)
     parser.add_argument("--c_idle", type=float, default=0.3)
     parser.add_argument("--theta_scale", type=float, default=1.0)
-    parser.add_argument("--sld_target_low_scale", type=float, default=0.5)
-    parser.add_argument("--sld_target_high_scale", type=float, default=0.7)
-    parser.add_argument("--sld_target_bonus", type=float, default=0.0)
-    parser.add_argument("--mld_success_reward", type=float, default=1.0)
-    parser.add_argument("--collision_penalty", type=float, default=1.0)
-    parser.add_argument("--non_top_tx_penalty", type=float, default=0.5)
     parser.add_argument("--eval_duration_sec", type=float, default=30.0)
     parser.add_argument("--slot_time_sec", type=float, default=9e-6)
     parser.add_argument("--phy_preamble_sec", type=float, default=20e-6)
@@ -141,9 +126,7 @@ def main(args):
         round_count = 1
         last_infos = None
         prev_link_successes = env.link_successes.copy()
-        prev_link_packet_successes = env.link_packet_successes.copy()
         prev_sld_success = int(env.round_sld_success)
-        next_arrival_step = int(all_args.round_length)
 
         while not accumulator.done():
             actions, pending_mask = mac.act(env)
@@ -156,26 +139,23 @@ def main(args):
             episode_reward_total += float(np.sum(rewards))
             last_infos = infos
 
-            link_events, prev_link_successes, prev_sld_success, prev_link_packet_successes = infer_link_events(
-                env, infos, prev_link_successes, prev_sld_success, prev_link_packet_successes
+            link_events, prev_link_successes, prev_sld_success = infer_link_events(
+                env, infos, prev_link_successes, prev_sld_success
             )
             step_slots = infos[0].get("step_slots", env.last_step_slots) if infos else env.last_step_slots
             accumulator.add_step(link_events, step_slots=step_slots)
 
-            while env.t >= next_arrival_step:
-                env.add_packet_arrivals(all_args.round_length)
-                next_arrival_step += int(all_args.round_length)
-
             if bool(np.all(dones)):
                 if accumulator.done():
                     break
-                raise RuntimeError(
-                    "WiFi v9 Mbps eval reached env done before the fixed-duration "
-                    "accumulator finished; increase the eval episode duration guard."
-                )
+                round_count += 1
+                obs, share_obs, available_actions = env.reset()
+                del obs, share_obs, available_actions
+                mac.reset_round(env)
+                prev_link_successes = env.link_successes.copy()
+                prev_sld_success = int(env.round_sld_success)
 
         metrics = accumulator.as_metrics()
-        add_mu_representative_metrics(metrics, env)
         metrics["episode_reward/total"] = float(episode_reward_total)
         metrics["policy_type"] = 0.0
         metrics["action/transmit_ratio"] = (
