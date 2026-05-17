@@ -68,6 +68,9 @@ def main():
         ("mbps/2_4GHz/total", "2.4GHz Mbps", "2_4ghz_mbps"),
         ("mbps/5GHz/total", "5GHz Mbps", "5ghz_mbps"),
         ("mbps/mld_total", "MLD Mbps", "mld_mbps"),
+        ("mbps/mu_min_mld/total", "Min Arrival MLD Mbps", "mu_min_mld_mbps"),
+        ("mbps/mu_mid_mld/total", "Mid Arrival MLD Mbps", "mu_mid_mld_mbps"),
+        ("mbps/mu_max_mld/total", "Max Arrival MLD Mbps", "mu_max_mld_mbps"),
         ("mbps/sld_total", "SLD Mbps", "sld_mbps"),
         ("mbps/system", "System Mbps", "system_mbps"),
     ]

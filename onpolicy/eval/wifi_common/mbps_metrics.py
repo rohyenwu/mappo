@@ -53,6 +53,8 @@ class MbpsAccumulator:
         self.bits_mld_24 = 0.0
         self.bits_mld_5 = 0.0
         self.bits_sld = 0.0
+        self.bits_per_mld = {}
+        self.bits_per_mld_link = {}
         self.step_count = 0
         self.total_step_slots = 0.0
         self.event_counts = {
@@ -81,10 +83,12 @@ class MbpsAccumulator:
                 durations.append(self.time_model.idle_time_sec())
         return max(durations) if durations else 0.0
 
-    def _step_bits(self, link_events: dict) -> tuple[float, float, float]:
+    def _step_bits(self, link_events: dict) -> tuple[float, float, float, dict, dict]:
         bits_mld_24 = 0.0
         bits_mld_5 = 0.0
         bits_sld = 0.0
+        bits_per_mld = {}
+        bits_per_mld_link = {}
 
         for link_id in (0, 1):
             if link_events[link_id]["result"] != "success":
@@ -96,10 +100,15 @@ class MbpsAccumulator:
                     bits_mld_24 += packet_count * self.time_model.payload_bits
                 else:
                     bits_mld_5 += packet_count * self.time_model.payload_bits
+                for mld_id, mld_packets in link_events[link_id].get("mld_packet_counts", {}).items():
+                    mld_bits = float(mld_packets) * self.time_model.payload_bits
+                    bits_per_mld[mld_id] = bits_per_mld.get(mld_id, 0.0) + mld_bits
+                    link_key = (mld_id, link_id)
+                    bits_per_mld_link[link_key] = bits_per_mld_link.get(link_key, 0.0) + mld_bits
             elif success_type == "sld":
                 bits_sld += packet_count * self.time_model.payload_bits
 
-        return bits_mld_24, bits_mld_5, bits_sld
+        return bits_mld_24, bits_mld_5, bits_sld, bits_per_mld, bits_per_mld_link
 
     def add_step(self, link_events: dict, step_slots: float = 0.0) -> float:
         if self.done():
@@ -108,7 +117,7 @@ class MbpsAccumulator:
         step_slots = max(float(step_slots), 0.0)
         wait_sec = step_slots * self.time_model.slot_time_sec
         duration_sec = wait_sec + self._step_duration_sec(link_events)
-        bits_mld_24, bits_mld_5, bits_sld = self._step_bits(link_events)
+        bits_mld_24, bits_mld_5, bits_sld, bits_per_mld, bits_per_mld_link = self._step_bits(link_events)
 
         remaining_sec = max(self.time_model.eval_duration_sec - self.elapsed_sec, 0.0)
         fraction = 1.0 if duration_sec <= remaining_sec else remaining_sec / max(duration_sec, 1e-12)
@@ -116,6 +125,10 @@ class MbpsAccumulator:
         self.bits_mld_24 += bits_mld_24 * fraction
         self.bits_mld_5 += bits_mld_5 * fraction
         self.bits_sld += bits_sld * fraction
+        for mld_id, bits in bits_per_mld.items():
+            self.bits_per_mld[mld_id] = self.bits_per_mld.get(mld_id, 0.0) + bits * fraction
+        for key, bits in bits_per_mld_link.items():
+            self.bits_per_mld_link[key] = self.bits_per_mld_link.get(key, 0.0) + bits * fraction
         self.elapsed_sec += duration_sec * fraction
         self.step_count += 1
         self.total_step_slots += step_slots * fraction
@@ -198,7 +211,42 @@ class MbpsAccumulator:
         metrics["idle_rate/system_per_event"] = float(
             system_idle / max(system_events, 1.0)
         )
+        for mld_id, bits in sorted(self.bits_per_mld.items()):
+            metrics[f"mbps/mld_{mld_id}/total"] = float(bits / duration_sec / 1e6)
+            for link_id, link_name in link_names.items():
+                link_bits = self.bits_per_mld_link.get((mld_id, link_id), 0.0)
+                metrics[f"mbps/mld_{mld_id}/{link_name}"] = float(link_bits / duration_sec / 1e6)
         return metrics
+
+
+def add_mu_representative_metrics(metrics: dict, env):
+    """Add min/mid/max arrival-rate MLD aliases for per-MLD Mbps metrics."""
+
+    active_mld = int(getattr(env, "active_mld", getattr(env, "num_mld", 0)))
+    if active_mld <= 0 or not hasattr(env, "mu"):
+        return metrics
+
+    mu_values = np.asarray(env.mu[:active_mld, 0], dtype=np.float32)
+    if mu_values.size == 0:
+        return metrics
+
+    mu_min = float(np.min(mu_values))
+    mu_max = float(np.max(mu_values))
+    mu_mid_target = (mu_min + mu_max) / 2.0
+    representatives = {
+        "min": int(np.argmin(mu_values)),
+        "mid": int(np.argmin(np.abs(mu_values - mu_mid_target))),
+        "max": int(np.argmax(mu_values)),
+    }
+
+    for label, mld_id in representatives.items():
+        metrics[f"traffic_profile/{label}_mu/mld_id"] = float(mld_id)
+        metrics[f"traffic_profile/{label}_mu/value"] = float(mu_values[mld_id])
+        for suffix in ("total", "2_4GHz", "5GHz"):
+            source_key = f"mbps/mld_{mld_id}/{suffix}"
+            metrics[f"mbps/mu_{label}_mld/{suffix}"] = float(metrics.get(source_key, 0.0))
+
+    return metrics
 
 
 def infer_link_events(env, infos, prev_link_successes, prev_sld_success, prev_link_packet_successes):
@@ -220,6 +268,7 @@ def infer_link_events(env, infos, prev_link_successes, prev_sld_success, prev_li
 
         success_type = None
         packet_count = 0.0
+        mld_packet_counts = {}
         if result == "success":
             if link_id == 0 and delta_sld_success > 0 and int(delta_link_successes[:, 0].sum()) == 0:
                 success_type = "sld"
@@ -229,13 +278,23 @@ def infer_link_events(env, infos, prev_link_successes, prev_sld_success, prev_li
                 if hasattr(env, "link_packet_successes"):
                     successful_mlds = np.flatnonzero(delta_link_successes[:, link_id] > 0)
                     packet_count = float(delta_link_packet_successes[successful_mlds, link_id].sum())
+                    mld_packet_counts = {
+                        int(mld_id): float(delta_link_packet_successes[mld_id, link_id])
+                        for mld_id in successful_mlds
+                    }
                 else:
                     packet_count = float(delta_link_successes[:, link_id].sum())
+                    successful_mlds = np.flatnonzero(delta_link_successes[:, link_id] > 0)
+                    mld_packet_counts = {
+                        int(mld_id): float(delta_link_successes[mld_id, link_id])
+                        for mld_id in successful_mlds
+                    }
 
         link_events[link_id] = {
             "result": result,
             "success_type": success_type,
             "packet_count": packet_count,
+            "mld_packet_counts": mld_packet_counts,
         }
 
     return link_events, curr_link_successes, curr_sld_success, curr_link_packet_successes

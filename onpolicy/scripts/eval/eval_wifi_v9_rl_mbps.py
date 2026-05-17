@@ -11,6 +11,7 @@ from onpolicy.envs.wifi_v9.wifi_env import WiFiEnvV9
 from onpolicy.eval.wifi_common.mbps_metrics import (
     MbpsAccumulator,
     MbpsTimeModel,
+    add_mu_representative_metrics,
     infer_link_events,
     save_mbps_bar_chart,
 )
@@ -220,6 +221,7 @@ def main(args):
                 masks = env.get_active_masks()
 
         metrics = accumulator.as_metrics()
+        add_mu_representative_metrics(metrics, env)
         metrics["episode_reward/total"] = float(episode_reward_total)
         metrics["policy_type"] = 1.0
         metrics["action/transmit_ratio"] = (
