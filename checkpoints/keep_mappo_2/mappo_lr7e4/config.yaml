@@ -1,0 +1,231 @@
+_wandb:
+    value:
+        cli_version: 0.26.0
+        e:
+            o91fiy0ehj2ogrhiqmwx4wfhy9qm98is:
+                args:
+                    - --env_name
+                    - WiFi_v2
+                    - --algorithm_name
+                    - mappo
+                    - --experiment_name
+                    - debug_reward_fixedmu_mld10_sld5_lr7e4
+                    - --num_mld
+                    - "10"
+                    - --num_sld
+                    - "5"
+                    - --round_length
+                    - "500"
+                    - --num_env_steps
+                    - "500000"
+                    - --n_rollout_threads
+                    - "1"
+                    - --use_centralized_V
+                    - --lr
+                    - "7e-4"
+                    - --critic_lr
+                    - "7e-4"
+                    - --r_sld
+                    - "0.3"
+                    - --c_idle
+                    - "0.3"
+                    - --eta
+                    - "0.3"
+                    - --theta_scale
+                    - "1.0"
+                    - --user_name
+                    - nhw1124-kumoh-national-institute-of-technology
+                codePath: onpolicy/scripts/train/train_wifi_v2.py
+                codePathLocal: onpolicy/scripts/train/train_wifi_v2.py
+                cpu_count: 8
+                cpu_count_logical: 16
+                cudaVersion: "13.0"
+                disk:
+                    /:
+                        total: "5903182643200"
+                        used: "43751559168"
+                email: nhw1124@kumoh.ac.kr
+                executable: /home/se/miniconda3/envs/mappo/bin/python
+                git:
+                    commit: 01a9ceb718907b1df1a1b7b1d1db2dc9e750aed2
+                    remote: https://github.com/rohyenwu/mappo.git
+                gpu: NVIDIA GeForce RTX 3090
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ampere
+                      cudaCores: 10496
+                      memoryTotal: "25769803776"
+                      name: NVIDIA GeForce RTX 3090
+                      uuid: GPU-26770b99-4edf-19a4-5b65-c7b691f11134
+                host: ubuntu01
+                memory:
+                    total: "67308929024"
+                os: Linux-6.8.0-107-generic-x86_64-with-glibc2.39
+                program: /home/se/repos/mappo/onpolicy/scripts/train/train_wifi_v2.py
+                python: CPython 3.10.20
+                root: /home/se/repos/mappo/onpolicy/scripts/results/WiFi_v2/mappo/debug_reward_fixedmu_mld10_sld5_lr7e4
+                startedAt: "2026-04-20T02:56:02.686072Z"
+                writerId: o91fiy0ehj2ogrhiqmwx4wfhy9qm98is
+        m: []
+        python_version: 3.10.20
+        t:
+            "1":
+                - 1
+            "2":
+                - 1
+            "3":
+                - 13
+                - 16
+                - 61
+            "4": 3.10.20
+            "5": 0.26.0
+            "10":
+                - 20
+            "12": 0.26.0
+            "13": linux-x86_64
+algorithm_name:
+    value: mappo
+c_idle:
+    value: 0.3
+clip_param:
+    value: 0.2
+critic_lr:
+    value: 0.0007
+cuda:
+    value: true
+cuda_deterministic:
+    value: true
+data_chunk_length:
+    value: 10
+entropy_coef:
+    value: 0.01
+entropy_coef_min:
+    value: null
+env_name:
+    value: WiFi_v2
+episode_length:
+    value: 500
+eta:
+    value: 0.3
+eval_episodes:
+    value: 32
+eval_interval:
+    value: 25
+experiment_name:
+    value: debug_reward_fixedmu_mld10_sld5_lr7e4
+gae_lambda:
+    value: 0.95
+gain:
+    value: 0.01
+gamma:
+    value: 0.99
+hidden_size:
+    value: 64
+huber_delta:
+    value: 10
+ifi:
+    value: 0.1
+layer_N:
+    value: 1
+log_interval:
+    value: 5
+lr:
+    value: 0.0007
+max_grad_norm:
+    value: 10
+model_dir:
+    value: null
+mu_max:
+    value: 0.8
+mu_min:
+    value: 0.2
+n_eval_rollout_threads:
+    value: 1
+n_render_rollout_threads:
+    value: 1
+n_rollout_threads:
+    value: 1
+n_training_threads:
+    value: 1
+num_env_steps:
+    value: 500000
+num_mini_batch:
+    value: 1
+num_mld:
+    value: 10
+num_sld:
+    value: 5
+opti_eps:
+    value: 1e-05
+ppo_epoch:
+    value: 6
+r_sld:
+    value: 0.3
+recurrent_N:
+    value: 1
+render_episodes:
+    value: 5
+round_length:
+    value: 500
+save_gifs:
+    value: false
+save_interval:
+    value: 1
+seed:
+    value: 1
+share_policy:
+    value: true
+stacked_frames:
+    value: 1
+theta_scale:
+    value: 1
+use_ReLU:
+    value: true
+use_centralized_V:
+    value: false
+use_clipped_value_loss:
+    value: true
+use_eval:
+    value: false
+use_feature_normalization:
+    value: true
+use_gae:
+    value: true
+use_huber_loss:
+    value: true
+use_linear_lr_decay:
+    value: false
+use_max_grad_norm:
+    value: true
+use_naive_recurrent_policy:
+    value: false
+use_obs_instead_of_state:
+    value: false
+use_orthogonal:
+    value: true
+use_policy_active_masks:
+    value: true
+use_popart:
+    value: false
+use_proper_time_limits:
+    value: false
+use_recurrent_policy:
+    value: false
+use_render:
+    value: false
+use_stacked_frames:
+    value: false
+use_value_active_masks:
+    value: true
+use_valuenorm:
+    value: true
+use_wandb:
+    value: true
+user_name:
+    value: nhw1124-kumoh-national-institute-of-technology
+value_loss_coef:
+    value: 1
+weight_decay:
+    value: 0
+zeta:
+    value: 1

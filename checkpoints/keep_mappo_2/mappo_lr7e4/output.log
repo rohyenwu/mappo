@@ -1,0 +1,1219 @@
+
+[WiFi-v2] Episode 0/1000 | Steps 500/500000 | FPS 173
+  avg reward:      -2.4135 (pos: 1.1651, neg: -2.4435)
+  transmit ratio:  0.4947
+  avg fulfillment: 0.0024
+  throughput/2_4GHz/mld: 0.0100
+  throughput/2_4GHz/sld: 0.0000
+  throughput/2_4GHz/total: 0.0100
+  throughput/5GHz/mld: 0.0080
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.0080
+  throughput/mld_total: 0.0180
+  throughput/sld_total: 0.0000
+  throughput/system: 0.0180
+  collision_rate/2_4GHz/per_txop: 0.9900
+  collision_rate/2_4GHz/per_tx: 0.1994
+  collision_rate/5GHz/per_txop: 0.9900
+  collision_rate/5GHz/per_tx: 0.2008
+  collision_rate/system_per_txop: 0.9900
+  collision_rate/system_per_tx: 0.2001
+
+[WiFi-v2] Episode 5/1000 | Steps 3000/500000 | FPS 184
+  avg reward:      -0.3882 (pos: 0.9841, neg: -1.7534)
+  transmit ratio:  0.1345
+  avg fulfillment: 0.1250
+  throughput/2_4GHz/mld: 0.3440
+  throughput/2_4GHz/sld: 0.0160
+  throughput/2_4GHz/total: 0.3600
+  throughput/5GHz/mld: 0.3360
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.3360
+  throughput/mld_total: 0.6800
+  throughput/sld_total: 0.0160
+  throughput/system: 0.6960
+  collision_rate/2_4GHz/per_txop: 0.4360
+  collision_rate/2_4GHz/per_tx: 0.3128
+  collision_rate/5GHz/per_txop: 0.3880
+  collision_rate/5GHz/per_tx: 0.2994
+  collision_rate/system_per_txop: 0.4120
+  collision_rate/system_per_tx: 0.3063
+
+[WiFi-v2] Episode 10/1000 | Steps 5500/500000 | FPS 185
+  avg reward:      0.3890 (pos: 0.8676, neg: -1.5132)
+  transmit ratio:  0.0410
+  avg fulfillment: 0.0655
+  throughput/2_4GHz/mld: 0.2140
+  throughput/2_4GHz/sld: 0.0720
+  throughput/2_4GHz/total: 0.2860
+  throughput/5GHz/mld: 0.2880
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2880
+  throughput/mld_total: 0.5020
+  throughput/sld_total: 0.0720
+  throughput/system: 0.5740
+  collision_rate/2_4GHz/per_txop: 0.1360
+  collision_rate/2_4GHz/per_tx: 0.3208
+  collision_rate/5GHz/per_txop: 0.0480
+  collision_rate/5GHz/per_tx: 0.1212
+  collision_rate/system_per_txop: 0.0920
+  collision_rate/system_per_tx: 0.2244
+
+[WiFi-v2] Episode 15/1000 | Steps 8000/500000 | FPS 185
+  avg reward:      0.4399 (pos: 0.8271, neg: -1.4402)
+  transmit ratio:  0.0257
+  avg fulfillment: 0.0484
+  throughput/2_4GHz/mld: 0.1720
+  throughput/2_4GHz/sld: 0.1300
+  throughput/2_4GHz/total: 0.3020
+  throughput/5GHz/mld: 0.1700
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1700
+  throughput/mld_total: 0.3420
+  throughput/sld_total: 0.1300
+  throughput/system: 0.4720
+  collision_rate/2_4GHz/per_txop: 0.1040
+  collision_rate/2_4GHz/per_tx: 0.3490
+  collision_rate/5GHz/per_txop: 0.0220
+  collision_rate/5GHz/per_tx: 0.1019
+  collision_rate/system_per_txop: 0.0630
+  collision_rate/system_per_tx: 0.2451
+
+[WiFi-v2] Episode 20/1000 | Steps 10500/500000 | FPS 185
+  avg reward:      0.4819 (pos: 0.8174, neg: -1.3899)
+  transmit ratio:  0.0200
+  avg fulfillment: 0.0436
+  throughput/2_4GHz/mld: 0.1320
+  throughput/2_4GHz/sld: 0.1400
+  throughput/2_4GHz/total: 0.2720
+  throughput/5GHz/mld: 0.1700
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1700
+  throughput/mld_total: 0.3020
+  throughput/sld_total: 0.1400
+  throughput/system: 0.4420
+  collision_rate/2_4GHz/per_txop: 0.0720
+  collision_rate/2_4GHz/per_tx: 0.3636
+  collision_rate/5GHz/per_txop: 0.0160
+  collision_rate/5GHz/per_tx: 0.0792
+  collision_rate/system_per_txop: 0.0440
+  collision_rate/system_per_tx: 0.2200
+
+[WiFi-v2] Episode 25/1000 | Steps 13000/500000 | FPS 186
+  avg reward:      0.4846 (pos: 0.8077, neg: -1.3997)
+  transmit ratio:  0.0162
+  avg fulfillment: 0.0365
+  throughput/2_4GHz/mld: 0.1060
+  throughput/2_4GHz/sld: 0.1460
+  throughput/2_4GHz/total: 0.2520
+  throughput/5GHz/mld: 0.1380
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1380
+  throughput/mld_total: 0.2440
+  throughput/sld_total: 0.1460
+  throughput/system: 0.3900
+  collision_rate/2_4GHz/per_txop: 0.0760
+  collision_rate/2_4GHz/per_tx: 0.4368
+  collision_rate/5GHz/per_txop: 0.0060
+  collision_rate/5GHz/per_tx: 0.0400
+  collision_rate/system_per_txop: 0.0410
+  collision_rate/system_per_tx: 0.2531
+
+[WiFi-v2] Episode 30/1000 | Steps 15500/500000 | FPS 186
+  avg reward:      0.4791 (pos: 0.8037, neg: -1.3925)
+  transmit ratio:  0.0167
+  avg fulfillment: 0.0418
+  throughput/2_4GHz/mld: 0.1200
+  throughput/2_4GHz/sld: 0.1440
+  throughput/2_4GHz/total: 0.2640
+  throughput/5GHz/mld: 0.1420
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1420
+  throughput/mld_total: 0.2620
+  throughput/sld_total: 0.1440
+  throughput/system: 0.4060
+  collision_rate/2_4GHz/per_txop: 0.0700
+  collision_rate/2_4GHz/per_tx: 0.4070
+  collision_rate/5GHz/per_txop: 0.0100
+  collision_rate/5GHz/per_tx: 0.0617
+  collision_rate/system_per_txop: 0.0400
+  collision_rate/system_per_tx: 0.2395
+
+[WiFi-v2] Episode 35/1000 | Steps 18000/500000 | FPS 186
+  avg reward:      0.4828 (pos: 0.8051, neg: -1.3978)
+  transmit ratio:  0.0165
+  avg fulfillment: 0.0376
+  throughput/2_4GHz/mld: 0.1000
+  throughput/2_4GHz/sld: 0.1540
+  throughput/2_4GHz/total: 0.2540
+  throughput/5GHz/mld: 0.1400
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1400
+  throughput/mld_total: 0.2400
+  throughput/sld_total: 0.1540
+  throughput/system: 0.3940
+  collision_rate/2_4GHz/per_txop: 0.0700
+  collision_rate/2_4GHz/per_tx: 0.4118
+  collision_rate/5GHz/per_txop: 0.0100
+  collision_rate/5GHz/per_tx: 0.0625
+  collision_rate/system_per_txop: 0.0400
+  collision_rate/system_per_tx: 0.2424
+
+[WiFi-v2] Episode 40/1000 | Steps 20500/500000 | FPS 186
+  avg reward:      0.4795 (pos: 0.8083, neg: -1.3921)
+  transmit ratio:  0.0161
+  avg fulfillment: 0.0348
+  throughput/2_4GHz/mld: 0.1160
+  throughput/2_4GHz/sld: 0.1560
+  throughput/2_4GHz/total: 0.2720
+  throughput/5GHz/mld: 0.1240
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1240
+  throughput/mld_total: 0.2400
+  throughput/sld_total: 0.1560
+  throughput/system: 0.3960
+  collision_rate/2_4GHz/per_txop: 0.0740
+  collision_rate/2_4GHz/per_tx: 0.4353
+  collision_rate/5GHz/per_txop: 0.0140
+  collision_rate/5GHz/per_tx: 0.0921
+  collision_rate/system_per_txop: 0.0440
+  collision_rate/system_per_tx: 0.2733
+
+[WiFi-v2] Episode 45/1000 | Steps 23000/500000 | FPS 186
+  avg reward:      0.4931 (pos: 0.8116, neg: -1.3833)
+  transmit ratio:  0.0147
+  avg fulfillment: 0.0328
+  throughput/2_4GHz/mld: 0.0980
+  throughput/2_4GHz/sld: 0.1760
+  throughput/2_4GHz/total: 0.2740
+  throughput/5GHz/mld: 0.1160
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1160
+  throughput/mld_total: 0.2140
+  throughput/sld_total: 0.1760
+  throughput/system: 0.3900
+  collision_rate/2_4GHz/per_txop: 0.0680
+  collision_rate/2_4GHz/per_tx: 0.4533
+  collision_rate/5GHz/per_txop: 0.0140
+  collision_rate/5GHz/per_tx: 0.0972
+  collision_rate/system_per_txop: 0.0410
+  collision_rate/system_per_tx: 0.2789
+
+[WiFi-v2] Episode 50/1000 | Steps 25500/500000 | FPS 186
+  avg reward:      0.5075 (pos: 0.8084, neg: -1.3722)
+  transmit ratio:  0.0145
+  avg fulfillment: 0.0383
+  throughput/2_4GHz/mld: 0.1080
+  throughput/2_4GHz/sld: 0.1740
+  throughput/2_4GHz/total: 0.2820
+  throughput/5GHz/mld: 0.1280
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1280
+  throughput/mld_total: 0.2360
+  throughput/sld_total: 0.1740
+  throughput/system: 0.4100
+  collision_rate/2_4GHz/per_txop: 0.0540
+  collision_rate/2_4GHz/per_tx: 0.3699
+  collision_rate/5GHz/per_txop: 0.0080
+  collision_rate/5GHz/per_tx: 0.0556
+  collision_rate/system_per_txop: 0.0310
+  collision_rate/system_per_tx: 0.2138
+
+[WiFi-v2] Episode 55/1000 | Steps 28000/500000 | FPS 186
+  avg reward:      0.5186 (pos: 0.8158, neg: -1.3663)
+  transmit ratio:  0.0150
+  avg fulfillment: 0.0419
+  throughput/2_4GHz/mld: 0.0880
+  throughput/2_4GHz/sld: 0.1760
+  throughput/2_4GHz/total: 0.2640
+  throughput/5GHz/mld: 0.1740
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1740
+  throughput/mld_total: 0.2620
+  throughput/sld_total: 0.1760
+  throughput/system: 0.4380
+  collision_rate/2_4GHz/per_txop: 0.0520
+  collision_rate/2_4GHz/per_tx: 0.4407
+  collision_rate/5GHz/per_txop: 0.0040
+  collision_rate/5GHz/per_tx: 0.0220
+  collision_rate/system_per_txop: 0.0280
+  collision_rate/system_per_tx: 0.1867
+
+[WiFi-v2] Episode 60/1000 | Steps 30500/500000 | FPS 186
+  avg reward:      0.5030 (pos: 0.8063, neg: -1.3772)
+  transmit ratio:  0.0131
+  avg fulfillment: 0.0360
+  throughput/2_4GHz/mld: 0.0800
+  throughput/2_4GHz/sld: 0.1700
+  throughput/2_4GHz/total: 0.2500
+  throughput/5GHz/mld: 0.1200
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1200
+  throughput/mld_total: 0.2000
+  throughput/sld_total: 0.1700
+  throughput/system: 0.3700
+  collision_rate/2_4GHz/per_txop: 0.0620
+  collision_rate/2_4GHz/per_tx: 0.4921
+  collision_rate/5GHz/per_txop: 0.0080
+  collision_rate/5GHz/per_tx: 0.0588
+  collision_rate/system_per_txop: 0.0350
+  collision_rate/system_per_tx: 0.2672
+
+[WiFi-v2] Episode 65/1000 | Steps 33000/500000 | FPS 186
+  avg reward:      0.4920 (pos: 0.8143, neg: -1.3826)
+  transmit ratio:  0.0164
+  avg fulfillment: 0.0468
+  throughput/2_4GHz/mld: 0.0800
+  throughput/2_4GHz/sld: 0.1620
+  throughput/2_4GHz/total: 0.2420
+  throughput/5GHz/mld: 0.1600
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1600
+  throughput/mld_total: 0.2400
+  throughput/sld_total: 0.1620
+  throughput/system: 0.4020
+  collision_rate/2_4GHz/per_txop: 0.0700
+  collision_rate/2_4GHz/per_tx: 0.5000
+  collision_rate/5GHz/per_txop: 0.0140
+  collision_rate/5GHz/per_tx: 0.0745
+  collision_rate/system_per_txop: 0.0420
+  collision_rate/system_per_tx: 0.2561
+
+[WiFi-v2] Episode 70/1000 | Steps 35500/500000 | FPS 186
+  avg reward:      0.5091 (pos: 0.8085, neg: -1.3790)
+  transmit ratio:  0.0150
+  avg fulfillment: 0.0370
+  throughput/2_4GHz/mld: 0.1100
+  throughput/2_4GHz/sld: 0.1540
+  throughput/2_4GHz/total: 0.2640
+  throughput/5GHz/mld: 0.1380
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1380
+  throughput/mld_total: 0.2480
+  throughput/sld_total: 0.1540
+  throughput/system: 0.4020
+  collision_rate/2_4GHz/per_txop: 0.0520
+  collision_rate/2_4GHz/per_tx: 0.3562
+  collision_rate/5GHz/per_txop: 0.0080
+  collision_rate/5GHz/per_tx: 0.0519
+  collision_rate/system_per_txop: 0.0300
+  collision_rate/system_per_tx: 0.2000
+
+[WiFi-v2] Episode 75/1000 | Steps 38000/500000 | FPS 186
+  avg reward:      0.4879 (pos: 0.8176, neg: -1.3998)
+  transmit ratio:  0.0181
+  avg fulfillment: 0.0421
+  throughput/2_4GHz/mld: 0.0960
+  throughput/2_4GHz/sld: 0.1600
+  throughput/2_4GHz/total: 0.2560
+  throughput/5GHz/mld: 0.1760
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1760
+  throughput/mld_total: 0.2720
+  throughput/sld_total: 0.1600
+  throughput/system: 0.4320
+  collision_rate/2_4GHz/per_txop: 0.0640
+  collision_rate/2_4GHz/per_tx: 0.4444
+  collision_rate/5GHz/per_txop: 0.0200
+  collision_rate/5GHz/per_tx: 0.0917
+  collision_rate/system_per_txop: 0.0420
+  collision_rate/system_per_tx: 0.2320
+
+[WiFi-v2] Episode 80/1000 | Steps 40500/500000 | FPS 186
+  avg reward:      0.4920 (pos: 0.8249, neg: -1.3827)
+  transmit ratio:  0.0172
+  avg fulfillment: 0.0353
+  throughput/2_4GHz/mld: 0.0960
+  throughput/2_4GHz/sld: 0.1800
+  throughput/2_4GHz/total: 0.2760
+  throughput/5GHz/mld: 0.1600
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1600
+  throughput/mld_total: 0.2560
+  throughput/sld_total: 0.1800
+  throughput/system: 0.4360
+  collision_rate/2_4GHz/per_txop: 0.0720
+  collision_rate/2_4GHz/per_tx: 0.5000
+  collision_rate/5GHz/per_txop: 0.0200
+  collision_rate/5GHz/per_tx: 0.1000
+  collision_rate/system_per_txop: 0.0460
+  collision_rate/system_per_tx: 0.2674
+
+[WiFi-v2] Episode 85/1000 | Steps 43000/500000 | FPS 186
+  avg reward:      0.5026 (pos: 0.8054, neg: -1.3670)
+  transmit ratio:  0.0131
+  avg fulfillment: 0.0440
+  throughput/2_4GHz/mld: 0.1020
+  throughput/2_4GHz/sld: 0.1620
+  throughput/2_4GHz/total: 0.2640
+  throughput/5GHz/mld: 0.1200
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1200
+  throughput/mld_total: 0.2220
+  throughput/sld_total: 0.1620
+  throughput/system: 0.3840
+  collision_rate/2_4GHz/per_txop: 0.0660
+  collision_rate/2_4GHz/per_tx: 0.4783
+  collision_rate/5GHz/per_txop: 0.0020
+  collision_rate/5GHz/per_tx: 0.0161
+  collision_rate/system_per_txop: 0.0340
+  collision_rate/system_per_tx: 0.2595
+
+[WiFi-v2] Episode 90/1000 | Steps 45500/500000 | FPS 186
+  avg reward:      0.4827 (pos: 0.7977, neg: -1.3746)
+  transmit ratio:  0.0141
+  avg fulfillment: 0.0334
+  throughput/2_4GHz/mld: 0.0840
+  throughput/2_4GHz/sld: 0.1620
+  throughput/2_4GHz/total: 0.2460
+  throughput/5GHz/mld: 0.1340
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1340
+  throughput/mld_total: 0.2180
+  throughput/sld_total: 0.1620
+  throughput/system: 0.3800
+  collision_rate/2_4GHz/per_txop: 0.0680
+  collision_rate/2_4GHz/per_tx: 0.5312
+  collision_rate/5GHz/per_txop: 0.0100
+  collision_rate/5GHz/per_tx: 0.0649
+  collision_rate/system_per_txop: 0.0390
+  collision_rate/system_per_tx: 0.2766
+
+[WiFi-v2] Episode 95/1000 | Steps 48000/500000 | FPS 186
+  avg reward:      0.4969 (pos: 0.8110, neg: -1.3716)
+  transmit ratio:  0.0125
+  avg fulfillment: 0.0286
+  throughput/2_4GHz/mld: 0.0560
+  throughput/2_4GHz/sld: 0.2040
+  throughput/2_4GHz/total: 0.2600
+  throughput/5GHz/mld: 0.1280
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1280
+  throughput/mld_total: 0.1840
+  throughput/sld_total: 0.2040
+  throughput/system: 0.3880
+  collision_rate/2_4GHz/per_txop: 0.0680
+  collision_rate/2_4GHz/per_tx: 0.7234
+  collision_rate/5GHz/per_txop: 0.0140
+  collision_rate/5GHz/per_tx: 0.0897
+  collision_rate/system_per_txop: 0.0410
+  collision_rate/system_per_tx: 0.3280
+
+[WiFi-v2] Episode 100/1000 | Steps 50500/500000 | FPS 186
+  avg reward:      0.4997 (pos: 0.8125, neg: -1.3764)
+  transmit ratio:  0.0144
+  avg fulfillment: 0.0414
+  throughput/2_4GHz/mld: 0.0760
+  throughput/2_4GHz/sld: 0.1800
+  throughput/2_4GHz/total: 0.2560
+  throughput/5GHz/mld: 0.1560
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1560
+  throughput/mld_total: 0.2320
+  throughput/sld_total: 0.1800
+  throughput/system: 0.4120
+  collision_rate/2_4GHz/per_txop: 0.0660
+  collision_rate/2_4GHz/per_tx: 0.5690
+  collision_rate/5GHz/per_txop: 0.0080
+  collision_rate/5GHz/per_tx: 0.0465
+  collision_rate/system_per_txop: 0.0370
+  collision_rate/system_per_tx: 0.2569
+
+[WiFi-v2] Episode 105/1000 | Steps 53000/500000 | FPS 186
+  avg reward:      0.5170 (pos: 0.8198, neg: -1.3821)
+  transmit ratio:  0.0154
+  avg fulfillment: 0.0378
+  throughput/2_4GHz/mld: 0.0900
+  throughput/2_4GHz/sld: 0.1680
+  throughput/2_4GHz/total: 0.2580
+  throughput/5GHz/mld: 0.1700
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1700
+  throughput/mld_total: 0.2600
+  throughput/sld_total: 0.1680
+  throughput/system: 0.4280
+  collision_rate/2_4GHz/per_txop: 0.0540
+  collision_rate/2_4GHz/per_tx: 0.4426
+  collision_rate/5GHz/per_txop: 0.0080
+  collision_rate/5GHz/per_tx: 0.0430
+  collision_rate/system_per_txop: 0.0310
+  collision_rate/system_per_tx: 0.2013
+
+[WiFi-v2] Episode 110/1000 | Steps 55500/500000 | FPS 186
+  avg reward:      0.4888 (pos: 0.8136, neg: -1.3911)
+  transmit ratio:  0.0152
+  avg fulfillment: 0.0320
+  throughput/2_4GHz/mld: 0.0560
+  throughput/2_4GHz/sld: 0.1740
+  throughput/2_4GHz/total: 0.2300
+  throughput/5GHz/mld: 0.1580
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1580
+  throughput/mld_total: 0.2140
+  throughput/sld_total: 0.1740
+  throughput/system: 0.3880
+  collision_rate/2_4GHz/per_txop: 0.0680
+  collision_rate/2_4GHz/per_tx: 0.6667
+  collision_rate/5GHz/per_txop: 0.0200
+  collision_rate/5GHz/per_tx: 0.0990
+  collision_rate/system_per_txop: 0.0440
+  collision_rate/system_per_tx: 0.2895
+
+[WiFi-v2] Episode 115/1000 | Steps 58000/500000 | FPS 186
+  avg reward:      0.4592 (pos: 0.8274, neg: -1.4181)
+  transmit ratio:  0.0235
+  avg fulfillment: 0.0563
+  throughput/2_4GHz/mld: 0.0940
+  throughput/2_4GHz/sld: 0.1580
+  throughput/2_4GHz/total: 0.2520
+  throughput/5GHz/mld: 0.2280
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2280
+  throughput/mld_total: 0.3220
+  throughput/sld_total: 0.1580
+  throughput/system: 0.4800
+  collision_rate/2_4GHz/per_txop: 0.0620
+  collision_rate/2_4GHz/per_tx: 0.4559
+  collision_rate/5GHz/per_txop: 0.0500
+  collision_rate/5GHz/per_tx: 0.1497
+  collision_rate/system_per_txop: 0.0560
+  collision_rate/system_per_tx: 0.2383
+
+[WiFi-v2] Episode 120/1000 | Steps 60500/500000 | FPS 186
+  avg reward:      0.4864 (pos: 0.8165, neg: -1.3903)
+  transmit ratio:  0.0181
+  avg fulfillment: 0.0435
+  throughput/2_4GHz/mld: 0.0640
+  throughput/2_4GHz/sld: 0.1660
+  throughput/2_4GHz/total: 0.2300
+  throughput/5GHz/mld: 0.2080
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2080
+  throughput/mld_total: 0.2720
+  throughput/sld_total: 0.1660
+  throughput/system: 0.4380
+  collision_rate/2_4GHz/per_txop: 0.0620
+  collision_rate/2_4GHz/per_tx: 0.5741
+  collision_rate/5GHz/per_txop: 0.0220
+  collision_rate/5GHz/per_tx: 0.0866
+  collision_rate/system_per_txop: 0.0420
+  collision_rate/system_per_tx: 0.2320
+
+[WiFi-v2] Episode 125/1000 | Steps 63000/500000 | FPS 186
+  avg reward:      0.5260 (pos: 0.8160, neg: -1.3564)
+  transmit ratio:  0.0118
+  avg fulfillment: 0.0330
+  throughput/2_4GHz/mld: 0.0660
+  throughput/2_4GHz/sld: 0.2140
+  throughput/2_4GHz/total: 0.2800
+  throughput/5GHz/mld: 0.1400
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1400
+  throughput/mld_total: 0.2060
+  throughput/sld_total: 0.2140
+  throughput/system: 0.4200
+  collision_rate/2_4GHz/per_txop: 0.0520
+  collision_rate/2_4GHz/per_tx: 0.5909
+  collision_rate/5GHz/per_txop: 0.0040
+  collision_rate/5GHz/per_tx: 0.0270
+  collision_rate/system_per_txop: 0.0280
+  collision_rate/system_per_tx: 0.2373
+
+[WiFi-v2] Episode 130/1000 | Steps 65500/500000 | FPS 186
+  avg reward:      0.4985 (pos: 0.8101, neg: -1.3721)
+  transmit ratio:  0.0133
+  avg fulfillment: 0.0310
+  throughput/2_4GHz/mld: 0.0640
+  throughput/2_4GHz/sld: 0.1740
+  throughput/2_4GHz/total: 0.2380
+  throughput/5GHz/mld: 0.1360
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1360
+  throughput/mld_total: 0.2000
+  throughput/sld_total: 0.1740
+  throughput/system: 0.3740
+  collision_rate/2_4GHz/per_txop: 0.0640
+  collision_rate/2_4GHz/per_tx: 0.6531
+  collision_rate/5GHz/per_txop: 0.0160
+  collision_rate/5GHz/per_tx: 0.0952
+  collision_rate/system_per_txop: 0.0400
+  collision_rate/system_per_tx: 0.3008
+
+[WiFi-v2] Episode 135/1000 | Steps 68000/500000 | FPS 186
+  avg reward:      0.4878 (pos: 0.8220, neg: -1.4000)
+  transmit ratio:  0.0176
+  avg fulfillment: 0.0464
+  throughput/2_4GHz/mld: 0.0980
+  throughput/2_4GHz/sld: 0.1680
+  throughput/2_4GHz/total: 0.2660
+  throughput/5GHz/mld: 0.1640
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1640
+  throughput/mld_total: 0.2620
+  throughput/sld_total: 0.1680
+  throughput/system: 0.4300
+  collision_rate/2_4GHz/per_txop: 0.0700
+  collision_rate/2_4GHz/per_tx: 0.4795
+  collision_rate/5GHz/per_txop: 0.0200
+  collision_rate/5GHz/per_tx: 0.0971
+  collision_rate/system_per_txop: 0.0450
+  collision_rate/system_per_tx: 0.2557
+
+[WiFi-v2] Episode 140/1000 | Steps 70500/500000 | FPS 186
+  avg reward:      0.4681 (pos: 0.8115, neg: -1.3942)
+  transmit ratio:  0.0200
+  avg fulfillment: 0.0447
+  throughput/2_4GHz/mld: 0.1240
+  throughput/2_4GHz/sld: 0.1260
+  throughput/2_4GHz/total: 0.2500
+  throughput/5GHz/mld: 0.1600
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1600
+  throughput/mld_total: 0.2840
+  throughput/sld_total: 0.1260
+  throughput/system: 0.4100
+  collision_rate/2_4GHz/per_txop: 0.0700
+  collision_rate/2_4GHz/per_tx: 0.3846
+  collision_rate/5GHz/per_txop: 0.0280
+  collision_rate/5GHz/per_tx: 0.1284
+  collision_rate/system_per_txop: 0.0490
+  collision_rate/system_per_tx: 0.2450
+
+[WiFi-v2] Episode 145/1000 | Steps 73000/500000 | FPS 186
+  avg reward:      0.4880 (pos: 0.8189, neg: -1.3898)
+  transmit ratio:  0.0166
+  avg fulfillment: 0.0354
+  throughput/2_4GHz/mld: 0.0720
+  throughput/2_4GHz/sld: 0.1740
+  throughput/2_4GHz/total: 0.2460
+  throughput/5GHz/mld: 0.1740
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1740
+  throughput/mld_total: 0.2460
+  throughput/sld_total: 0.1740
+  throughput/system: 0.4200
+  collision_rate/2_4GHz/per_txop: 0.0680
+  collision_rate/2_4GHz/per_tx: 0.6071
+  collision_rate/5GHz/per_txop: 0.0220
+  collision_rate/5GHz/per_tx: 0.1000
+  collision_rate/system_per_txop: 0.0450
+  collision_rate/system_per_tx: 0.2711
+
+[WiFi-v2] Episode 150/1000 | Steps 75500/500000 | FPS 186
+  avg reward:      0.5210 (pos: 0.8230, neg: -1.3738)
+  transmit ratio:  0.0158
+  avg fulfillment: 0.0386
+  throughput/2_4GHz/mld: 0.0960
+  throughput/2_4GHz/sld: 0.1740
+  throughput/2_4GHz/total: 0.2700
+  throughput/5GHz/mld: 0.1640
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1640
+  throughput/mld_total: 0.2600
+  throughput/sld_total: 0.1740
+  throughput/system: 0.4340
+  collision_rate/2_4GHz/per_txop: 0.0500
+  collision_rate/2_4GHz/per_tx: 0.3906
+  collision_rate/5GHz/per_txop: 0.0120
+  collision_rate/5GHz/per_tx: 0.0638
+  collision_rate/system_per_txop: 0.0310
+  collision_rate/system_per_tx: 0.1962
+
+[WiFi-v2] Episode 155/1000 | Steps 78000/500000 | FPS 186
+  avg reward:      0.4902 (pos: 0.8175, neg: -1.3952)
+  transmit ratio:  0.0173
+  avg fulfillment: 0.0404
+  throughput/2_4GHz/mld: 0.0820
+  throughput/2_4GHz/sld: 0.1660
+  throughput/2_4GHz/total: 0.2480
+  throughput/5GHz/mld: 0.1720
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1720
+  throughput/mld_total: 0.2540
+  throughput/sld_total: 0.1660
+  throughput/system: 0.4200
+  collision_rate/2_4GHz/per_txop: 0.0640
+  collision_rate/2_4GHz/per_tx: 0.5079
+  collision_rate/5GHz/per_txop: 0.0200
+  collision_rate/5GHz/per_tx: 0.0909
+  collision_rate/system_per_txop: 0.0420
+  collision_rate/system_per_tx: 0.2428
+
+[WiFi-v2] Episode 160/1000 | Steps 80500/500000 | FPS 186
+  avg reward:      0.4926 (pos: 0.8255, neg: -1.3835)
+  transmit ratio:  0.0200
+  avg fulfillment: 0.0393
+  throughput/2_4GHz/mld: 0.0900
+  throughput/2_4GHz/sld: 0.1700
+  throughput/2_4GHz/total: 0.2600
+  throughput/5GHz/mld: 0.2040
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2040
+  throughput/mld_total: 0.2940
+  throughput/sld_total: 0.1700
+  throughput/system: 0.4640
+  collision_rate/2_4GHz/per_txop: 0.0540
+  collision_rate/2_4GHz/per_tx: 0.4286
+  collision_rate/5GHz/per_txop: 0.0320
+  collision_rate/5GHz/per_tx: 0.1168
+  collision_rate/system_per_txop: 0.0430
+  collision_rate/system_per_tx: 0.2150
+
+[WiFi-v2] Episode 165/1000 | Steps 83000/500000 | FPS 186
+  avg reward:      0.5109 (pos: 0.8324, neg: -1.3755)
+  transmit ratio:  0.0165
+  avg fulfillment: 0.0378
+  throughput/2_4GHz/mld: 0.0780
+  throughput/2_4GHz/sld: 0.2100
+  throughput/2_4GHz/total: 0.2880
+  throughput/5GHz/mld: 0.1780
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1780
+  throughput/mld_total: 0.2560
+  throughput/sld_total: 0.2100
+  throughput/system: 0.4660
+  collision_rate/2_4GHz/per_txop: 0.0560
+  collision_rate/2_4GHz/per_tx: 0.5490
+  collision_rate/5GHz/per_txop: 0.0240
+  collision_rate/5GHz/per_tx: 0.1053
+  collision_rate/system_per_txop: 0.0400
+  collision_rate/system_per_tx: 0.2424
+
+[WiFi-v2] Episode 170/1000 | Steps 85500/500000 | FPS 186
+  avg reward:      0.5079 (pos: 0.8329, neg: -1.3886)
+  transmit ratio:  0.0175
+  avg fulfillment: 0.0411
+  throughput/2_4GHz/mld: 0.0900
+  throughput/2_4GHz/sld: 0.1940
+  throughput/2_4GHz/total: 0.2840
+  throughput/5GHz/mld: 0.1820
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1820
+  throughput/mld_total: 0.2720
+  throughput/sld_total: 0.1940
+  throughput/system: 0.4660
+  collision_rate/2_4GHz/per_txop: 0.0580
+  collision_rate/2_4GHz/per_tx: 0.4833
+  collision_rate/5GHz/per_txop: 0.0220
+  collision_rate/5GHz/per_tx: 0.0957
+  collision_rate/system_per_txop: 0.0400
+  collision_rate/system_per_tx: 0.2286
+
+[WiFi-v2] Episode 175/1000 | Steps 88000/500000 | FPS 186
+  avg reward:      0.4883 (pos: 0.8243, neg: -1.3874)
+  transmit ratio:  0.0192
+  avg fulfillment: 0.0397
+  throughput/2_4GHz/mld: 0.0960
+  throughput/2_4GHz/sld: 0.1480
+  throughput/2_4GHz/total: 0.2440
+  throughput/5GHz/mld: 0.2040
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2040
+  throughput/mld_total: 0.3000
+  throughput/sld_total: 0.1480
+  throughput/system: 0.4480
+  collision_rate/2_4GHz/per_txop: 0.0660
+  collision_rate/2_4GHz/per_tx: 0.5000
+  collision_rate/5GHz/per_txop: 0.0240
+  collision_rate/5GHz/per_tx: 0.0952
+  collision_rate/system_per_txop: 0.0450
+  collision_rate/system_per_tx: 0.2344
+
+[WiFi-v2] Episode 180/1000 | Steps 90500/500000 | FPS 186
+  avg reward:      0.4414 (pos: 0.8517, neg: -1.4507)
+  transmit ratio:  0.0289
+  avg fulfillment: 0.0435
+  throughput/2_4GHz/mld: 0.0760
+  throughput/2_4GHz/sld: 0.1720
+  throughput/2_4GHz/total: 0.2480
+  throughput/5GHz/mld: 0.2540
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2540
+  throughput/mld_total: 0.3300
+  throughput/sld_total: 0.1720
+  throughput/system: 0.5020
+  collision_rate/2_4GHz/per_txop: 0.0620
+  collision_rate/2_4GHz/per_tx: 0.5439
+  collision_rate/5GHz/per_txop: 0.0860
+  collision_rate/5GHz/per_tx: 0.1853
+  collision_rate/system_per_txop: 0.0740
+  collision_rate/system_per_tx: 0.2561
+
+[WiFi-v2] Episode 185/1000 | Steps 93000/500000 | FPS 186
+  avg reward:      0.4217 (pos: 0.8568, neg: -1.4565)
+  transmit ratio:  0.0321
+  avg fulfillment: 0.0423
+  throughput/2_4GHz/mld: 0.1040
+  throughput/2_4GHz/sld: 0.1680
+  throughput/2_4GHz/total: 0.2720
+  throughput/5GHz/mld: 0.2500
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2500
+  throughput/mld_total: 0.3540
+  throughput/sld_total: 0.1680
+  throughput/system: 0.5220
+  collision_rate/2_4GHz/per_txop: 0.0620
+  collision_rate/2_4GHz/per_tx: 0.4247
+  collision_rate/5GHz/per_txop: 0.1060
+  collision_rate/5GHz/per_tx: 0.2137
+  collision_rate/system_per_txop: 0.0840
+  collision_rate/system_per_tx: 0.2617
+
+[WiFi-v2] Episode 190/1000 | Steps 95500/500000 | FPS 186
+  avg reward:      0.3843 (pos: 0.8500, neg: -1.4995)
+  transmit ratio:  0.0372
+  avg fulfillment: 0.0439
+  throughput/2_4GHz/mld: 0.2320
+  throughput/2_4GHz/sld: 0.0620
+  throughput/2_4GHz/total: 0.2940
+  throughput/5GHz/mld: 0.1940
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1940
+  throughput/mld_total: 0.4260
+  throughput/sld_total: 0.0620
+  throughput/system: 0.4880
+  collision_rate/2_4GHz/per_txop: 0.1460
+  collision_rate/2_4GHz/per_tx: 0.3147
+  collision_rate/5GHz/per_txop: 0.0400
+  collision_rate/5GHz/per_tx: 0.1429
+  collision_rate/system_per_txop: 0.0930
+  collision_rate/system_per_tx: 0.2500
+
+[WiFi-v2] Episode 195/1000 | Steps 98000/500000 | FPS 186
+  avg reward:      0.4895 (pos: 0.8615, neg: -1.4249)
+  transmit ratio:  0.0270
+  avg fulfillment: 0.0396
+  throughput/2_4GHz/mld: 0.1700
+  throughput/2_4GHz/sld: 0.1260
+  throughput/2_4GHz/total: 0.2960
+  throughput/5GHz/mld: 0.2060
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2060
+  throughput/mld_total: 0.3760
+  throughput/sld_total: 0.1260
+  throughput/system: 0.5020
+  collision_rate/2_4GHz/per_txop: 0.0800
+  collision_rate/2_4GHz/per_tx: 0.3077
+  collision_rate/5GHz/per_txop: 0.0360
+  collision_rate/5GHz/per_tx: 0.1286
+  collision_rate/system_per_txop: 0.0580
+  collision_rate/system_per_tx: 0.2148
+
+[WiFi-v2] Episode 200/1000 | Steps 100500/500000 | FPS 186
+  avg reward:      0.4849 (pos: 0.8524, neg: -1.4233)
+  transmit ratio:  0.0260
+  avg fulfillment: 0.0423
+  throughput/2_4GHz/mld: 0.1260
+  throughput/2_4GHz/sld: 0.1460
+  throughput/2_4GHz/total: 0.2720
+  throughput/5GHz/mld: 0.2240
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2240
+  throughput/mld_total: 0.3500
+  throughput/sld_total: 0.1460
+  throughput/system: 0.4960
+  collision_rate/2_4GHz/per_txop: 0.0660
+  collision_rate/2_4GHz/per_tx: 0.3402
+  collision_rate/5GHz/per_txop: 0.0460
+  collision_rate/5GHz/per_tx: 0.1411
+  collision_rate/system_per_txop: 0.0560
+  collision_rate/system_per_tx: 0.2154
+
+[WiFi-v2] Episode 205/1000 | Steps 103000/500000 | FPS 186
+  avg reward:      0.3799 (pos: 0.8592, neg: -1.5066)
+  transmit ratio:  0.0401
+  avg fulfillment: 0.0464
+  throughput/2_4GHz/mld: 0.2200
+  throughput/2_4GHz/sld: 0.1000
+  throughput/2_4GHz/total: 0.3200
+  throughput/5GHz/mld: 0.1900
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1900
+  throughput/mld_total: 0.4100
+  throughput/sld_total: 0.1000
+  throughput/system: 0.5100
+  collision_rate/2_4GHz/per_txop: 0.1100
+  collision_rate/2_4GHz/per_tx: 0.2821
+  collision_rate/5GHz/per_txop: 0.0880
+  collision_rate/5GHz/per_tx: 0.2136
+  collision_rate/system_per_txop: 0.0990
+  collision_rate/system_per_tx: 0.2469
+
+[WiFi-v2] Episode 210/1000 | Steps 105500/500000 | FPS 186
+  avg reward:      0.4074 (pos: 0.8677, neg: -1.4710)
+  transmit ratio:  0.0374
+  avg fulfillment: 0.0410
+  throughput/2_4GHz/mld: 0.1700
+  throughput/2_4GHz/sld: 0.1420
+  throughput/2_4GHz/total: 0.3120
+  throughput/5GHz/mld: 0.2240
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2240
+  throughput/mld_total: 0.3940
+  throughput/sld_total: 0.1420
+  throughput/system: 0.5360
+  collision_rate/2_4GHz/per_txop: 0.0820
+  collision_rate/2_4GHz/per_tx: 0.3015
+  collision_rate/5GHz/per_txop: 0.1040
+  collision_rate/5GHz/per_tx: 0.2185
+  collision_rate/system_per_txop: 0.0930
+  collision_rate/system_per_tx: 0.2487
+
+[WiFi-v2] Episode 215/1000 | Steps 108000/500000 | FPS 186
+  avg reward:      0.4768 (pos: 0.8419, neg: -1.4399)
+  transmit ratio:  0.0248
+  avg fulfillment: 0.0316
+  throughput/2_4GHz/mld: 0.1040
+  throughput/2_4GHz/sld: 0.1440
+  throughput/2_4GHz/total: 0.2480
+  throughput/5GHz/mld: 0.2080
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2080
+  throughput/mld_total: 0.3120
+  throughput/sld_total: 0.1440
+  throughput/system: 0.4560
+  collision_rate/2_4GHz/per_txop: 0.0540
+  collision_rate/2_4GHz/per_tx: 0.3750
+  collision_rate/5GHz/per_txop: 0.0580
+  collision_rate/5GHz/per_tx: 0.1648
+  collision_rate/system_per_txop: 0.0560
+  collision_rate/system_per_tx: 0.2258
+
+[WiFi-v2] Episode 220/1000 | Steps 110500/500000 | FPS 186
+  avg reward:      0.4384 (pos: 0.8496, neg: -1.4607)
+  transmit ratio:  0.0305
+  avg fulfillment: 0.0389
+  throughput/2_4GHz/mld: 0.1300
+  throughput/2_4GHz/sld: 0.1240
+  throughput/2_4GHz/total: 0.2540
+  throughput/5GHz/mld: 0.2280
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2280
+  throughput/mld_total: 0.3580
+  throughput/sld_total: 0.1240
+  throughput/system: 0.4820
+  collision_rate/2_4GHz/per_txop: 0.0740
+  collision_rate/2_4GHz/per_tx: 0.3737
+  collision_rate/5GHz/per_txop: 0.0740
+  collision_rate/5GHz/per_tx: 0.1796
+  collision_rate/system_per_txop: 0.0740
+  collision_rate/system_per_tx: 0.2426
+
+[WiFi-v2] Episode 225/1000 | Steps 113000/500000 | FPS 186
+  avg reward:      0.4310 (pos: 0.8634, neg: -1.4648)
+  transmit ratio:  0.0340
+  avg fulfillment: 0.0414
+  throughput/2_4GHz/mld: 0.1740
+  throughput/2_4GHz/sld: 0.1400
+  throughput/2_4GHz/total: 0.3140
+  throughput/5GHz/mld: 0.2260
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2260
+  throughput/mld_total: 0.4000
+  throughput/sld_total: 0.1400
+  throughput/system: 0.5400
+  collision_rate/2_4GHz/per_txop: 0.0680
+  collision_rate/2_4GHz/per_tx: 0.2833
+  collision_rate/5GHz/per_txop: 0.0920
+  collision_rate/5GHz/per_tx: 0.2091
+  collision_rate/system_per_txop: 0.0800
+  collision_rate/system_per_tx: 0.2353
+
+[WiFi-v2] Episode 230/1000 | Steps 115500/500000 | FPS 186
+  avg reward:      0.4305 (pos: 0.8519, neg: -1.4598)
+  transmit ratio:  0.0316
+  avg fulfillment: 0.0354
+  throughput/2_4GHz/mld: 0.1540
+  throughput/2_4GHz/sld: 0.1460
+  throughput/2_4GHz/total: 0.3000
+  throughput/5GHz/mld: 0.2120
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2120
+  throughput/mld_total: 0.3660
+  throughput/sld_total: 0.1460
+  throughput/system: 0.5120
+  collision_rate/2_4GHz/per_txop: 0.0720
+  collision_rate/2_4GHz/per_tx: 0.3051
+  collision_rate/5GHz/per_txop: 0.0820
+  collision_rate/5GHz/per_tx: 0.2071
+  collision_rate/system_per_txop: 0.0770
+  collision_rate/system_per_tx: 0.2437
+
+[WiFi-v2] Episode 235/1000 | Steps 118000/500000 | FPS 186
+  avg reward:      0.2607 (pos: 0.8416, neg: -1.5788)
+  transmit ratio:  0.0512
+  avg fulfillment: 0.0386
+  throughput/2_4GHz/mld: 0.1880
+  throughput/2_4GHz/sld: 0.0980
+  throughput/2_4GHz/total: 0.2860
+  throughput/5GHz/mld: 0.1600
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.1600
+  throughput/mld_total: 0.3480
+  throughput/sld_total: 0.0980
+  throughput/system: 0.4460
+  collision_rate/2_4GHz/per_txop: 0.2500
+  collision_rate/2_4GHz/per_tx: 0.3157
+  collision_rate/5GHz/per_txop: 0.0340
+  collision_rate/5GHz/per_tx: 0.1466
+  collision_rate/system_per_txop: 0.1420
+  collision_rate/system_per_tx: 0.2773
+
+[WiFi-v2] Episode 240/1000 | Steps 120500/500000 | FPS 186
+  avg reward:      0.4636 (pos: 0.8559, neg: -1.4343)
+  transmit ratio:  0.0251
+  avg fulfillment: 0.0309
+  throughput/2_4GHz/mld: 0.0460
+  throughput/2_4GHz/sld: 0.2020
+  throughput/2_4GHz/total: 0.2480
+  throughput/5GHz/mld: 0.2500
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2500
+  throughput/mld_total: 0.2960
+  throughput/sld_total: 0.2020
+  throughput/system: 0.4980
+  collision_rate/2_4GHz/per_txop: 0.0580
+  collision_rate/2_4GHz/per_tx: 0.7436
+  collision_rate/5GHz/per_txop: 0.0800
+  collision_rate/5GHz/per_tx: 0.1887
+  collision_rate/system_per_txop: 0.0690
+  collision_rate/system_per_tx: 0.2749
+
+[WiFi-v2] Episode 245/1000 | Steps 123000/500000 | FPS 186
+  avg reward:      0.3986 (pos: 0.8576, neg: -1.5156)
+  transmit ratio:  0.0361
+  avg fulfillment: 0.0427
+  throughput/2_4GHz/mld: 0.1220
+  throughput/2_4GHz/sld: 0.1400
+  throughput/2_4GHz/total: 0.2620
+  throughput/5GHz/mld: 0.2460
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2460
+  throughput/mld_total: 0.3680
+  throughput/sld_total: 0.1400
+  throughput/system: 0.5080
+  collision_rate/2_4GHz/per_txop: 0.0760
+  collision_rate/2_4GHz/per_tx: 0.3455
+  collision_rate/5GHz/per_txop: 0.1040
+  collision_rate/5GHz/per_tx: 0.2072
+  collision_rate/system_per_txop: 0.0900
+  collision_rate/system_per_tx: 0.2493
+
+[WiFi-v2] Episode 250/1000 | Steps 125500/500000 | FPS 186
+  avg reward:      0.3890 (pos: 0.8783, neg: -1.4909)
+  transmit ratio:  0.0402
+  avg fulfillment: 0.0380
+  throughput/2_4GHz/mld: 0.1400
+  throughput/2_4GHz/sld: 0.1360
+  throughput/2_4GHz/total: 0.2760
+  throughput/5GHz/mld: 0.2400
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2400
+  throughput/mld_total: 0.3800
+  throughput/sld_total: 0.1360
+  throughput/system: 0.5160
+  collision_rate/2_4GHz/per_txop: 0.0960
+  collision_rate/2_4GHz/per_tx: 0.3810
+  collision_rate/5GHz/per_txop: 0.1180
+  collision_rate/5GHz/per_tx: 0.2138
+  collision_rate/system_per_txop: 0.1070
+  collision_rate/system_per_tx: 0.2662
+
+[WiFi-v2] Episode 255/1000 | Steps 128000/500000 | FPS 186
+  avg reward:      0.3817 (pos: 0.8581, neg: -1.4753)
+  transmit ratio:  0.0397
+  avg fulfillment: 0.0373
+  throughput/2_4GHz/mld: 0.1560
+  throughput/2_4GHz/sld: 0.1140
+  throughput/2_4GHz/total: 0.2700
+  throughput/5GHz/mld: 0.2360
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2360
+  throughput/mld_total: 0.3920
+  throughput/sld_total: 0.1140
+  throughput/system: 0.5060
+  collision_rate/2_4GHz/per_txop: 0.0960
+  collision_rate/2_4GHz/per_tx: 0.3288
+  collision_rate/5GHz/per_txop: 0.1060
+  collision_rate/5GHz/per_tx: 0.2112
+  collision_rate/system_per_txop: 0.1010
+  collision_rate/system_per_tx: 0.2544
+
+[WiFi-v2] Episode 260/1000 | Steps 130500/500000 | FPS 186
+  avg reward:      0.0301 (pos: 0.9033, neg: -1.7009)
+  transmit ratio:  0.0915
+  avg fulfillment: 0.0444
+  throughput/2_4GHz/mld: 0.1840
+  throughput/2_4GHz/sld: 0.0900
+  throughput/2_4GHz/total: 0.2740
+  throughput/5GHz/mld: 0.2760
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2760
+  throughput/mld_total: 0.4600
+  throughput/sld_total: 0.0900
+  throughput/system: 0.5500
+  collision_rate/2_4GHz/per_txop: 0.2880
+  collision_rate/2_4GHz/per_tx: 0.2829
+  collision_rate/5GHz/per_txop: 0.2000
+  collision_rate/5GHz/per_tx: 0.2463
+  collision_rate/system_per_txop: 0.2440
+  collision_rate/system_per_tx: 0.2667
+
+[WiFi-v2] Episode 265/1000 | Steps 133000/500000 | FPS 186
+  avg reward:      0.2718 (pos: 0.8980, neg: -1.5742)
+  transmit ratio:  0.0591
+  avg fulfillment: 0.0523
+  throughput/2_4GHz/mld: 0.2360
+  throughput/2_4GHz/sld: 0.0840
+  throughput/2_4GHz/total: 0.3200
+  throughput/5GHz/mld: 0.2460
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2460
+  throughput/mld_total: 0.4820
+  throughput/sld_total: 0.0840
+  throughput/system: 0.5660
+  collision_rate/2_4GHz/per_txop: 0.2000
+  collision_rate/2_4GHz/per_tx: 0.2890
+  collision_rate/5GHz/per_txop: 0.1080
+  collision_rate/5GHz/per_tx: 0.2204
+  collision_rate/system_per_txop: 0.1540
+  collision_rate/system_per_tx: 0.2606
+
+[WiFi-v2] Episode 270/1000 | Steps 135500/500000 | FPS 186
+  avg reward:      0.3964 (pos: 0.8837, neg: -1.4898)
+  transmit ratio:  0.0415
+  avg fulfillment: 0.0434
+  throughput/2_4GHz/mld: 0.1820
+  throughput/2_4GHz/sld: 0.1140
+  throughput/2_4GHz/total: 0.2960
+  throughput/5GHz/mld: 0.2620
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2620
+  throughput/mld_total: 0.4440
+  throughput/sld_total: 0.1140
+  throughput/system: 0.5580
+  collision_rate/2_4GHz/per_txop: 0.1280
+  collision_rate/2_4GHz/per_tx: 0.3333
+  collision_rate/5GHz/per_txop: 0.0760
+  collision_rate/5GHz/per_tx: 0.1704
+  collision_rate/system_per_txop: 0.1020
+  collision_rate/system_per_tx: 0.2458
+
+[WiFi-v2] Episode 275/1000 | Steps 138000/500000 | FPS 186
+  avg reward:      0.3610 (pos: 0.8787, neg: -1.5015)
+  transmit ratio:  0.0450
+  avg fulfillment: 0.0439
+  throughput/2_4GHz/mld: 0.1880
+  throughput/2_4GHz/sld: 0.0940
+  throughput/2_4GHz/total: 0.2820
+  throughput/5GHz/mld: 0.2820
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2820
+  throughput/mld_total: 0.4700
+  throughput/sld_total: 0.0940
+  throughput/system: 0.5640
+  collision_rate/2_4GHz/per_txop: 0.1080
+  collision_rate/2_4GHz/per_tx: 0.3068
+  collision_rate/5GHz/per_txop: 0.1180
+  collision_rate/5GHz/per_tx: 0.2153
+  collision_rate/system_per_txop: 0.1130
+  collision_rate/system_per_tx: 0.2511
+
+[WiFi-v2] Episode 280/1000 | Steps 140500/500000 | FPS 186
+  avg reward:      0.3717 (pos: 0.8935, neg: -1.5079)
+  transmit ratio:  0.0450
+  avg fulfillment: 0.0452
+  throughput/2_4GHz/mld: 0.1840
+  throughput/2_4GHz/sld: 0.1360
+  throughput/2_4GHz/total: 0.3200
+  throughput/5GHz/mld: 0.2940
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.2940
+  throughput/mld_total: 0.4780
+  throughput/sld_total: 0.1360
+  throughput/system: 0.6140
+  collision_rate/2_4GHz/per_txop: 0.1240
+  collision_rate/2_4GHz/per_tx: 0.3298
+  collision_rate/5GHz/per_txop: 0.1000
+  collision_rate/5GHz/per_tx: 0.1908
+  collision_rate/system_per_txop: 0.1120
+  collision_rate/system_per_tx: 0.2489
+
+[WiFi-v2] Episode 285/1000 | Steps 143000/500000 | FPS 186
+  avg reward:      0.2202 (pos: 0.8930, neg: -1.5824)
+  transmit ratio:  0.0615
+  avg fulfillment: 0.0490
+  throughput/2_4GHz/mld: 0.1660
+  throughput/2_4GHz/sld: 0.0760
+  throughput/2_4GHz/total: 0.2420
+  throughput/5GHz/mld: 0.3220
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.3220
+  throughput/mld_total: 0.4880
+  throughput/sld_total: 0.0760
+  throughput/system: 0.5640
+  collision_rate/2_4GHz/per_txop: 0.0840
+  collision_rate/2_4GHz/per_tx: 0.3206
+  collision_rate/5GHz/per_txop: 0.2620
+  collision_rate/5GHz/per_tx: 0.2707
+  collision_rate/system_per_txop: 0.1730
+  collision_rate/system_per_tx: 0.2813
+
+[WiFi-v2] Episode 290/1000 | Steps 145500/500000 | FPS 186
+  avg reward:      0.3547 (pos: 0.8891, neg: -1.5216)
+  transmit ratio:  0.0476
+  avg fulfillment: 0.0471
+  throughput/2_4GHz/mld: 0.1740
+  throughput/2_4GHz/sld: 0.0900
+  throughput/2_4GHz/total: 0.2640
+  throughput/5GHz/mld: 0.3120
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.3120
+  throughput/mld_total: 0.4860
+  throughput/sld_total: 0.0900
+  throughput/system: 0.5760
+  collision_rate/2_4GHz/per_txop: 0.1400
+  collision_rate/2_4GHz/per_tx: 0.3256
+  collision_rate/5GHz/per_txop: 0.0960
+  collision_rate/5GHz/per_tx: 0.1839
+  collision_rate/system_per_txop: 0.1180
+  collision_rate/system_per_tx: 0.2479
+
+[WiFi-v2] Episode 295/1000 | Steps 148000/500000 | FPS 186
+  avg reward:      0.3453 (pos: 0.9342, neg: -1.5275)
+  transmit ratio:  0.0541
+  avg fulfillment: 0.0491
+  throughput/2_4GHz/mld: 0.1580
+  throughput/2_4GHz/sld: 0.1640
+  throughput/2_4GHz/total: 0.3220
+  throughput/5GHz/mld: 0.3720
+  throughput/5GHz/sld: 0.0000
+  throughput/5GHz/total: 0.3720
+  throughput/mld_total: 0.5300
+  throughput/sld_total: 0.1640
+  throughput/system: 0.6940
+  collision_rate/2_4GHz/per_txop: 0.0980
+  collision_rate/2_4GHz/per_tx: 0.3451
+  collision_rate/5GHz/per_txop: 0.1740
+  collision_rate/5GHz/per_tx: 0.2180
+  collision_rate/system_per_txop: 0.1360
+  collision_rate/system_per_tx: 0.2514
+Traceback (most recent call last):
+  File "/home/se/repos/mappo/onpolicy/scripts/train/train_wifi_v2.py", line 204, in <module>
+    main(sys.argv[1:])
+  File "/home/se/repos/mappo/onpolicy/scripts/train/train_wifi_v2.py", line 187, in main
+    runner.run()
+  File "/home/se/repos/mappo/onpolicy/runner/shared/wifi_v2_runner.py", line 177, in run
+    self.compute()
+  File "/home/se/miniconda3/envs/mappo/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/home/se/repos/mappo/onpolicy/runner/shared/wifi_v2_runner.py", line 311, in compute
+    self.buffer.compute_returns(next_values, self.trainer.value_normalizer)
+  File "/home/se/repos/mappo/onpolicy/utils/shared_buffer.py", line 251, in compute_returns
+    v_next = value_normalizer.denormalize(
+  File "/home/se/repos/mappo/onpolicy/utils/valuenorm.py", line 76, in denormalize
+    out = out.cpu().numpy()
+RuntimeError: CUDA error: unspecified launch failure
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
