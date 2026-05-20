@@ -161,11 +161,12 @@ class WiFiV9MMAMADDPG:
         if self.total_steps % self.learning_interval != 0:
             return None
 
-        sample = self._stack_sample_for_official_update(
-            self.replay_buffer.sample(self.batch_size)
-        )
+        raw_sample = self.replay_buffer.sample(self.batch_size)
+        masks = raw_sample[4]
+        update_agent_indices = np.where(np.asarray(masks).sum(axis=0) > 0.0)[0]
+        sample = self._stack_sample_for_official_update(raw_sample)
         losses = []
-        for aid in range(self.num_agents):
+        for aid in update_agent_indices:
             update_loss = self.model.update(sample, aid)
             if update_loss is not None:
                 critic_loss, actor_loss = update_loss
