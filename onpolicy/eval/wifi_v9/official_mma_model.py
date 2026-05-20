@@ -191,6 +191,7 @@ class MADDPG:
         actor_loss += (cur_actor_out ** 2).mean() * 1e-3
         actor_loss.backward()
         cur_agent.actor_optimizer.step()
+        return float(critic_loss.detach().cpu().item()), float(actor_loss.detach().cpu().item())
 
     def update_all_targets(self):
         for agt in self.agents:

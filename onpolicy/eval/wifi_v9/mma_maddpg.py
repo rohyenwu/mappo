@@ -164,15 +164,16 @@ class WiFiV9MMAMADDPG:
         sample = self._stack_sample_for_official_update(
             self.replay_buffer.sample(self.batch_size)
         )
-        losses_before = []
+        losses = []
         for aid in range(self.num_agents):
-            self.model.update(sample, aid)
+            update_loss = self.model.update(sample, aid)
+            if update_loss is not None:
+                critic_loss, actor_loss = update_loss
+                losses.append(critic_loss + actor_loss)
         self.total_updates += 1
         if self.total_updates % self.update_interval == 0:
             self.model.update_all_targets()
-        # The official update does not return losses. Keep a numeric hook for
-        # the shared train logger without modifying the official model code.
-        return float(np.mean(losses_before)) if losses_before else 0.0
+        return float(np.mean(losses)) if losses else 0.0
 
     def save(self, path, extra=None):
         path = Path(path)
