@@ -22,6 +22,14 @@ def parse_args():
     parser.add_argument("--wandb_run_name", type=str, default=None)
     parser.add_argument("--wandb_entity", type=str, default=None)
     parser.add_argument("--hide_bar_labels", action="store_true")
+    parser.add_argument(
+        "--include_event_doughnuts",
+        action="store_true",
+        help=(
+            "Also create a BEB/RL doughnut chart from aggregated "
+            "events/system/{success,collision,idle} counts across all cases."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -50,6 +58,136 @@ def parse_case_spec(spec: str):
         "beb": beb_summary,
         "rl": rl_summary,
     }
+
+
+def case_event_rates(case, policy):
+    summary = case[policy]
+    values = {
+        event_name: float(summary.get(f"events/system/{event_name}", 0.0))
+        for event_name in ("success", "collision", "idle")
+    }
+    total = sum(values.values())
+    if total <= 0.0:
+        return {event_name: 0.0 for event_name in values}
+    return {event_name: value / total for event_name, value in values.items()}
+
+
+def average_event_rates(cases, policy):
+    totals = {"success": 0.0, "collision": 0.0, "idle": 0.0}
+    if not cases:
+        return totals
+    for case in cases:
+        rates = case_event_rates(case, policy)
+        for event_name in totals:
+            totals[event_name] += rates[event_name]
+    return {event_name: value / len(cases) for event_name, value in totals.items()}
+
+
+def draw_event_doughnut(ax, values, title, colors):
+    labels = ["Success", "Collision", "Idle"]
+    event_names = ["success", "collision", "idle"]
+    parts = [values[event_name] for event_name in event_names]
+    total = sum(parts)
+    if total <= 0.0:
+        ax.text(0.5, 0.5, "No event data", ha="center", va="center")
+        ax.set_axis_off()
+        return
+
+    ax.pie(
+        parts,
+        colors=colors,
+        startangle=90,
+        counterclock=False,
+        wedgeprops={"width": 0.38, "edgecolor": "white", "linewidth": 1.5},
+    )
+    success_ratio = values["success"] / total
+    ax.text(
+        0,
+        0.06,
+        f"{success_ratio * 100:.1f}%",
+        ha="center",
+        va="center",
+        fontsize=16,
+        fontweight="bold",
+        color="#111827",
+    )
+    ax.text(
+        0,
+        -0.14,
+        "success",
+        ha="center",
+        va="center",
+        fontsize=8,
+        color="#64748b",
+    )
+    ax.set_title(title, fontsize=10)
+    ax.set_aspect("equal")
+
+
+def save_average_event_doughnut_chart(plt, output_path: Path, title: str, cases):
+    labels = ["Success", "Collision", "Idle"]
+    event_names = ["success", "collision", "idle"]
+    colors = ["#16a34a", "#dc2626", "#94a3b8"]
+    policy_specs = [
+        ("BEB", average_event_rates(cases, "beb")),
+        ("RL", average_event_rates(cases, "rl")),
+    ]
+
+    fig, axes = plt.subplots(1, 2, figsize=(10.5, 5.0))
+    for ax, (policy_label, rates) in zip(axes, policy_specs):
+        values = [rates[event_name] for event_name in event_names]
+        draw_event_doughnut(ax, rates, policy_label, colors)
+        legend_labels = [
+            f"{label}: {value * 100:.1f}% avg"
+            for label, value in zip(labels, values)
+        ]
+        ax.legend(
+            legend_labels,
+            loc="lower center",
+            bbox_to_anchor=(0.5, -0.24),
+            frameon=False,
+            fontsize=9,
+        )
+
+    fig.suptitle(f"{title} - Mean Per-Case Event Result Ratio")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_case_event_doughnut_grid(plt, output_path: Path, title: str, cases):
+    colors = ["#16a34a", "#dc2626", "#94a3b8"]
+    fig_height = max(5.0, 1.45 * len(cases))
+    fig, axes = plt.subplots(len(cases), 2, figsize=(8.5, fig_height))
+    if len(cases) == 1:
+        axes = [axes]
+
+    for row_idx, case in enumerate(cases):
+        for col_idx, policy in enumerate(("beb", "rl")):
+            ax = axes[row_idx][col_idx]
+            rates = case_event_rates(case, policy)
+            policy_label = "BEB" if policy == "beb" else "RL"
+            draw_event_doughnut(ax, rates, f"{case['label']} {policy_label}", colors)
+
+    fig.suptitle(f"{title} - Per-Case Event Success Ratio")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+
+def save_case_event_doughnut_pair(plt, output_path: Path, title: str, case):
+    colors = ["#16a34a", "#dc2626", "#94a3b8"]
+    fig, axes = plt.subplots(1, 2, figsize=(8.0, 4.2))
+
+    for ax, policy in zip(axes, ("beb", "rl")):
+        rates = case_event_rates(case, policy)
+        policy_label = "BEB" if policy == "beb" else "RL"
+        draw_event_doughnut(ax, rates, policy_label, colors)
+
+    fig.suptitle(f"{title} - {case['label']} Event Success Ratio")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
 
 
 def main():
@@ -121,6 +259,19 @@ def main():
         fig.savefig(output_path, dpi=200, bbox_inches="tight")
         plt.close(fig)
 
+    if args.include_event_doughnuts:
+        avg_output_path = output_dir / f"{output_stem}_event_success_doughnut_mean{output_suffix}"
+        save_average_event_doughnut_chart(plt, avg_output_path, args.title, cases)
+        output_paths.append(avg_output_path)
+
+        for case in cases:
+            case_output_path = (
+                output_dir
+                / f"{output_stem}_{case['label']}_event_success_doughnut{output_suffix}"
+            )
+            save_case_event_doughnut_pair(plt, case_output_path, args.title, case)
+            output_paths.append(case_output_path)
+
     print("Saved WiFi Mbps comparison charts to:")
     for output_path in output_paths:
         print(f"  {output_path}")
@@ -140,8 +291,22 @@ def main():
             config={"title": args.title, "cases": args.case},
             reinit=True,
         )
-        for output_path in output_paths:
-            wandb.log({output_path.stem: wandb.Image(str(output_path))})
+        image_rows = [
+            [output_path.stem, wandb.Image(str(output_path))]
+            for output_path in output_paths
+        ]
+        image_table = wandb.Table(columns=["figure", "image"], data=image_rows)
+        image_payload = {
+            "figures/all_images": image_table,
+            "figures/count": len(output_paths),
+        }
+        image_payload.update(
+            {
+                f"figures/{output_path.stem}": wandb.Image(str(output_path))
+                for output_path in output_paths
+            }
+        )
+        wandb.log(image_payload)
         run.finish()
 
 

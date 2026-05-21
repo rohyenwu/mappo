@@ -432,6 +432,33 @@ Saved at: {saved_at}
                 return active_masks.copy()
         return np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
+    def _get_env_ready_active_masks(self):
+        if hasattr(self.envs, "get_ready_active_masks"):
+            ready_active_masks = self.envs.get_ready_active_masks()
+            if ready_active_masks is not None:
+                return ready_active_masks.copy()
+
+        active_masks = self._get_env_active_masks()
+        if not hasattr(self.envs, "last_ready_links"):
+            return active_masks
+
+        ready_links = np.asarray(self.envs.last_ready_links)
+        if ready_links.ndim == 1:
+            ready_links = ready_links.reshape(1, -1)
+
+        agent_to_mld_link = getattr(self.envs, "agent_to_mld_link", None)
+        if agent_to_mld_link is None:
+            envs = getattr(self.envs, "envs", None)
+            if envs:
+                agent_to_mld_link = getattr(envs[0], "agent_to_mld_link", None)
+        if agent_to_mld_link is None:
+            return active_masks
+
+        ready_masks = np.zeros_like(active_masks)
+        for aid, (_, link_id) in enumerate(agent_to_mld_link):
+            ready_masks[:, aid, 0] = ready_links[:, link_id].astype(np.float32)
+        return active_masks * ready_masks
+
     def _set_buffer_start(self, obs, share_obs, available_actions):
         if not self.use_centralized_V:
             share_obs = obs
@@ -506,7 +533,7 @@ Saved at: {saved_at}
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones_env] = np.zeros((dones_env.sum(), self.num_agents, 1), dtype=np.float32)
 
-        active_masks = self._get_env_active_masks()
+        active_masks = self._get_env_ready_active_masks()
         bad_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
 
         if not self.use_centralized_V:

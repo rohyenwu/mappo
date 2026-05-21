@@ -351,6 +351,11 @@ def shareworker(remote, parent_remote, env_fn_wrapper):
                 remote.send(env.get_active_masks())
             else:
                 remote.send(None)
+        elif cmd == 'get_ready_active_masks':
+            if hasattr(env, 'get_ready_active_masks'):
+                remote.send(env.get_ready_active_masks())
+            else:
+                remote.send(None)
         elif cmd == 'set_scenario_by_episode':
             if hasattr(env, 'set_scenario_by_episode'):
                 episode_idx, interval_episodes = data
@@ -434,6 +439,17 @@ class ShareSubprocVecEnv(ShareVecEnv):
         results = []
         for remote in self.remotes:
             remote.send(('get_active_masks', None))
+        for remote in self.remotes:
+            result = remote.recv()
+            if result is None:
+                return None
+            results.append(result)
+        return np.stack(results)
+
+    def get_ready_active_masks(self):
+        results = []
+        for remote in self.remotes:
+            remote.send(('get_ready_active_masks', None))
         for remote in self.remotes:
             result = remote.recv()
             if result is None:
@@ -835,6 +851,11 @@ class ShareDummyVecEnv(ShareVecEnv):
         if not hasattr(self.envs[0], "get_active_masks"):
             return None
         return np.stack([env.get_active_masks() for env in self.envs])
+
+    def get_ready_active_masks(self):
+        if not hasattr(self.envs[0], "get_ready_active_masks"):
+            return None
+        return np.stack([env.get_ready_active_masks() for env in self.envs])
 
     def set_scenario_by_episode(self, episode_idx, interval_episodes):
         if not hasattr(self.envs[0], "set_scenario_by_episode"):

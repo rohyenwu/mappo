@@ -123,7 +123,7 @@ class WiFiEnvV9:
 
         self.usage_ema_alpha = 0.2
 
-        self.obs_dim = 11
+        self.obs_dim = 9
         obs_low = np.zeros(self.obs_dim, dtype=np.float32)
         obs_high = np.ones(self.obs_dim, dtype=np.float32)
         self.observation_space = [
@@ -171,6 +171,13 @@ class WiFiEnvV9:
         for aid in range(self.num_agents):
             if self._is_active_agent(aid):
                 masks[aid, 0] = 1.0
+        return masks
+
+    def get_ready_active_masks(self):
+        masks = self.get_active_masks()
+        for aid, (_, link_id) in enumerate(self.agent_to_mld_link):
+            if not self.last_ready_links[link_id]:
+                masks[aid, 0] = 0.0
         return masks
 
     def get_scenario_metrics(self):
@@ -343,8 +350,6 @@ class WiFiEnvV9:
             prev_action_self = float(self.prev_actions[aid])
             peer_aid = aid + 1 if (aid % 2 == 0) else aid - 1
             prev_action_peer = float(self.prev_actions[peer_aid])
-            busy_flag = float(self.link_busy_slots[link_id] > 0)
-            idle_progress = min(self.link_idle_slots[link_id], DIFS_SLOTS) / float(DIFS_SLOTS)
             link_usage_ema = float(self.link_usage_ema[link_id])
             d2lt_self = min(self.d2lt_slots[aid], self.round_length) / float(max(self.round_length, 1))
             link_onehot = [1.0, 0.0] if link_id == 0 else [0.0, 1.0]
@@ -354,8 +359,6 @@ class WiFiEnvV9:
                 fulfillment,
                 prev_action_self,
                 prev_action_peer,
-                busy_flag,
-                idle_progress,
                 link_usage_ema,
                 d2lt_self,
                 *link_onehot,
@@ -604,7 +607,9 @@ class WiFiEnvV9:
         if done:
             reward_sparse = self._apply_sparse_reward_with_trace(rewards)
 
-        self.prev_actions = actions_flat.copy()
+        for aid, (_, link_id) in enumerate(self.agent_to_mld_link):
+            if current_ready_links[link_id]:
+                self.prev_actions[aid] = actions_flat[aid]
 
         if not done:
             self._advance_until_access_opportunity()
