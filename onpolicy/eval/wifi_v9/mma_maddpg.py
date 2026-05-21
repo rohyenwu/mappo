@@ -259,12 +259,17 @@ class MMAStateTracker:
             peers = self._link_peers(aid, active_mask)
             wait_sum = float(np.sum(self.wait_self[peers]))
             phi = self.wait_self[aid] / wait_sum if wait_sum > 0.0 else 0.0
-            max_phi = (
-                max([self.wait_self[p] / wait_sum for p in peers], default=0.0)
-                if wait_sum > 0.0
-                else 0.0
-            )
-            is_max = phi >= max_phi
+            if wait_sum > 0.0 and peers:
+                peer_phi = {p: self.wait_self[p] / wait_sum for p in peers}
+                max_phi = max(peer_phi.values())
+                top_candidates = [
+                    p for p, value in peer_phi.items()
+                    if abs(value - max_phi) < 1e-9
+                ]
+                top_aid = min(top_candidates)
+            else:
+                top_aid = min(peers) if peers else aid
+            is_max = aid == top_aid
 
             global_reward = 0.0
             if rewards_raw[aid] > 0.0:
