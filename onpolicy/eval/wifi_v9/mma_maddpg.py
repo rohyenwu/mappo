@@ -192,6 +192,13 @@ class WiFiV9MMAMADDPG:
 
     def load(self, path, map_location=None):
         checkpoint = torch.load(path, map_location=map_location or self.device)
+        checkpoint_agents = int(checkpoint.get("num_agents", len(checkpoint["actor_state_dicts"])))
+        if checkpoint_agents != self.num_agents:
+            raise ValueError(
+                f"MMA checkpoint has {checkpoint_agents} agents, "
+                f"but this paper-aligned model expects {self.num_agents}. "
+                "Retrain MMA-MADDPG with the current MLD-level formulation."
+            )
         for agent, state_dict in zip(self.model.agents, checkpoint["actor_state_dicts"]):
             agent.actor.load_state_dict(state_dict)
             agent.target_actor.load_state_dict(state_dict)
@@ -203,108 +210,119 @@ class WiFiV9MMAMADDPG:
 
 
 @dataclass
-class MMAStateTracker:
-    num_agents: int
-    agent_to_mld_link: list
+class MMALinkStateTracker:
+    """Track paper-style MMA states per MLD and per link.
+
+    The paper trains one actor/critic pair per MLD in a single-link Dec-POMDP,
+    then reuses each MLD actor on every link during multi-link execution.  This
+    tracker therefore stores a separate action-observation history for each
+    (MLD, link), while the MADDPG model itself has only ``num_mld`` agents.
+    """
+
+    num_mld: int
+    num_links: int = 2
     history_length: int = 10
 
     def __post_init__(self):
         self.step_dim = 8
         self.state_dim = self.step_dim * int(self.history_length)
-        self.states = np.zeros((self.num_agents, self.state_dim), dtype=np.float32)
-        self.wait_self = np.zeros(self.num_agents, dtype=np.float32)
-        self.wait_other = np.ones(self.num_agents, dtype=np.float32)
+        self.states = np.zeros((self.num_mld, self.num_links, self.state_dim), dtype=np.float32)
+        self.wait_self = np.zeros((self.num_mld, self.num_links), dtype=np.float32)
+        self.wait_other = np.ones((self.num_mld, self.num_links), dtype=np.float32)
 
     def reset(self):
         self.states.fill(0.0)
         self.wait_self.fill(0.0)
         self.wait_other.fill(1.0)
 
-    def _link_peers(self, aid: int, active_mask):
-        _, link_id = self.agent_to_mld_link[aid]
-        return [
-            idx
-            for idx, (_, peer_link_id) in enumerate(self.agent_to_mld_link)
-            if peer_link_id == link_id and active_mask[idx]
-        ]
+    def _link_peers(self, active_mask):
+        return [idx for idx, active in enumerate(active_mask) if active]
 
-    def build_rewards(self, env, actions_onehot, infos, active_mask, alpha: float):
-        del env
+    def build_rewards(self, env, actions_onehot, infos, active_mask, link_id: int, alpha: float):
         active_mask = np.asarray(active_mask).reshape(-1).astype(bool)
         actions_onehot = np.asarray(actions_onehot, dtype=np.float32)
         actions_binary = np.argmax(actions_onehot, axis=1)
-        rewards_raw = np.zeros(self.num_agents, dtype=np.float32)
-        collisions = np.zeros(self.num_agents, dtype=np.float32)
-        link_obs = np.zeros((self.num_agents, 4), dtype=np.float32)
+        rewards_raw = np.zeros(self.num_mld, dtype=np.float32)
+        collisions = np.zeros(self.num_mld, dtype=np.float32)
+        link_obs = np.zeros((self.num_mld, 4), dtype=np.float32)
+        aid_by_mld = {
+            int(mld_id): aid
+            for aid, (mld_id, aid_link_id) in enumerate(env.agent_to_mld_link)
+            if int(aid_link_id) == int(link_id)
+        }
 
-        for aid, info in enumerate(infos):
-            if not active_mask[aid]:
+        for mld_id in range(self.num_mld):
+            if not active_mask[mld_id]:
                 continue
+            info = infos[aid_by_mld[mld_id]]
             result = info.get("txop_result", "")
             if result == "success":
-                rewards_raw[aid] = 1.0 if actions_binary[aid] == 1 else 0.0
-                link_obs[aid] = [1, 0, 0, 0] if actions_binary[aid] == 1 else [0, 1, 0, 0]
+                rewards_raw[mld_id] = 1.0 if actions_binary[mld_id] == 1 else 0.0
+                link_obs[mld_id] = [1, 0, 0, 0] if actions_binary[mld_id] == 1 else [0, 1, 0, 0]
             elif result == "collision":
-                collisions[aid] = 1.0 if actions_binary[aid] == 1 else 0.0
-                link_obs[aid] = [0, 0, 1, 0]
+                collisions[mld_id] = 1.0 if actions_binary[mld_id] == 1 else 0.0
+                link_obs[mld_id] = [0, 0, 1, 0]
             elif result == "idle":
-                link_obs[aid] = [0, 0, 0, 1]
+                link_obs[mld_id] = [0, 0, 0, 1]
             else:
-                link_obs[aid] = [0, 0, 0, 1]
+                link_obs[mld_id] = [0, 0, 0, 1]
 
-        rewards = np.zeros(self.num_agents, dtype=np.float32)
-        for aid in range(self.num_agents):
-            if not active_mask[aid]:
+        rewards = np.zeros(self.num_mld, dtype=np.float32)
+        peers = self._link_peers(active_mask)
+        wait_sum = float(np.sum(self.wait_self[peers, link_id])) if peers else 0.0
+        if wait_sum > 0.0 and peers:
+            peer_phi = {p: self.wait_self[p, link_id] / wait_sum for p in peers}
+            max_phi = max(peer_phi.values())
+            top_candidates = [
+                p for p, value in peer_phi.items()
+                if abs(value - max_phi) < 1e-9
+            ]
+            top_mld = min(top_candidates)
+        else:
+            top_mld = min(peers) if peers else 0
+
+        for mld_id in range(self.num_mld):
+            if not active_mask[mld_id]:
                 continue
-            peers = self._link_peers(aid, active_mask)
-            wait_sum = float(np.sum(self.wait_self[peers]))
-            phi = self.wait_self[aid] / wait_sum if wait_sum > 0.0 else 0.0
-            if wait_sum > 0.0 and peers:
-                peer_phi = {p: self.wait_self[p] / wait_sum for p in peers}
-                max_phi = max(peer_phi.values())
-                top_candidates = [
-                    p for p, value in peer_phi.items()
-                    if abs(value - max_phi) < 1e-9
-                ]
-                top_aid = min(top_candidates)
-            else:
-                top_aid = min(peers) if peers else aid
-            is_max = aid == top_aid
+            phi = self.wait_self[mld_id, link_id] / wait_sum if wait_sum > 0.0 else 0.0
+            is_max = mld_id == top_mld
 
             global_reward = 0.0
-            if rewards_raw[aid] > 0.0:
+            if rewards_raw[mld_id] > 0.0:
                 global_reward = 1.0 if is_max else phi
-            elif collisions[aid] > 0.0:
+            elif collisions[mld_id] > 0.0:
                 global_reward = -1.0
 
-            if is_max and actions_binary[aid] == 1:
+            if is_max and actions_binary[mld_id] == 1:
                 individual_reward = 1.0
-            elif is_max and actions_binary[aid] == 0:
+            elif is_max and actions_binary[mld_id] == 0:
                 individual_reward = -1.0 / max(1.0 - phi, 1e-6)
-            elif (not is_max) and actions_binary[aid] == 1:
+            elif (not is_max) and actions_binary[mld_id] == 1:
                 individual_reward = -1.0
             else:
                 individual_reward = 1.0
-            rewards[aid] = float(alpha) * global_reward + (1.0 - float(alpha)) * individual_reward
+            rewards[mld_id] = float(alpha) * global_reward + (1.0 - float(alpha)) * individual_reward
 
         return rewards, link_obs, collisions, rewards_raw
 
-    def update(self, actions_onehot, link_obs, success_raw, active_mask):
+    def update_link(self, link_id: int, actions_onehot, link_obs, success_raw, active_mask):
         active_mask = np.asarray(active_mask).reshape(-1).astype(bool)
-        self.wait_self[active_mask] += 1.0
-        for aid in range(self.num_agents):
-            if not active_mask[aid]:
+        self.wait_self[active_mask, link_id] += 1.0
+        peers = self._link_peers(active_mask)
+        for mld_id in range(self.num_mld):
+            if not active_mask[mld_id]:
                 continue
-            peers = self._link_peers(aid, active_mask)
-            other_waits = [self.wait_self[p] for p in peers if p != aid]
-            self.wait_other[aid] = float(np.mean(other_waits)) if other_waits else 1.0
-        for aid, success in enumerate(success_raw):
-            if active_mask[aid] and success > 0.0:
-                self.wait_self[aid] = 0.0
+            other_waits = [self.wait_self[p, link_id] for p in peers if p != mld_id]
+            self.wait_other[mld_id, link_id] = float(np.mean(other_waits)) if other_waits else 1.0
+        for mld_id, success in enumerate(success_raw):
+            if active_mask[mld_id] and success > 0.0:
+                self.wait_self[mld_id, link_id] = 0.0
 
-        denom = self.wait_self + self.wait_other
-        ci = np.divide(self.wait_self, denom, out=np.zeros_like(self.wait_self), where=denom > 0)
-        cminus = np.divide(self.wait_other, denom, out=np.zeros_like(self.wait_other), where=denom > 0)
+        wait_self = self.wait_self[:, link_id]
+        wait_other = self.wait_other[:, link_id]
+        denom = wait_self + wait_other
+        ci = np.divide(wait_self, denom, out=np.zeros_like(wait_self), where=denom > 0)
+        cminus = np.divide(wait_other, denom, out=np.zeros_like(wait_other), where=denom > 0)
         step_features = np.concatenate(
             [
                 np.asarray(actions_onehot, dtype=np.float32),
@@ -314,5 +332,11 @@ class MMAStateTracker:
             ],
             axis=1,
         )
-        self.states = np.concatenate([self.states[:, self.step_dim :], step_features], axis=1)
-        return self.states.copy()
+        self.states[:, link_id, :] = np.concatenate(
+            [self.states[:, link_id, self.step_dim :], step_features],
+            axis=1,
+        )
+        return self.states[:, link_id, :].copy()
+
+
+MMAStateTracker = MMALinkStateTracker

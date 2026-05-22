@@ -12,7 +12,7 @@ import torch
 from onpolicy.config import get_config
 from onpolicy.envs.wifi_v9.wifi_env import WiFiEnvV9
 from onpolicy.eval.wifi_v5.utils import parse_mu_profile
-from onpolicy.eval.wifi_v9.mma_maddpg import MMAStateTracker, WiFiV9MMAMADDPG
+from onpolicy.eval.wifi_v9.mma_maddpg import MMALinkStateTracker, WiFiV9MMAMADDPG
 
 
 def parse_scenario_profile(profile_text):
@@ -133,16 +133,22 @@ def parse_args(args, parser):
     return parser.parse_known_args(args)[0]
 
 
-def ready_active_mask(env):
-    active = env.get_active_masks().reshape(-1).astype(bool)
-    ready = np.zeros(env.num_agents, dtype=bool)
-    for aid, (_, link_id) in enumerate(env.agent_to_mld_link):
-        ready[aid] = bool(env.last_ready_links[link_id])
-    return active & ready
+def ready_active_mld_mask(env, link_id: int):
+    active = np.zeros(env.max_mld, dtype=bool)
+    active[: int(env.active_mld)] = bool(env.last_ready_links[link_id])
+    return active
 
 
 def onehot_to_env_actions(actions_onehot):
     return np.argmax(actions_onehot, axis=1).astype(np.int32).reshape(-1, 1)
+
+
+def build_env_actions(env, actions_by_link):
+    env_actions = np.zeros(env.num_agents, dtype=np.int32)
+    for aid, (mld_id, link_id) in enumerate(env.agent_to_mld_link):
+        if mld_id < env.active_mld and env.last_ready_links[link_id]:
+            env_actions[aid] = int(np.argmax(actions_by_link[mld_id, link_id]))
+    return env_actions.reshape(-1, 1)
 
 
 def main(args):
@@ -158,13 +164,13 @@ def main(args):
     run = init_wandb(all_args, run_dir)
 
     template_env = make_wifi_env(all_args, all_args.seed, scenarios[0])
-    tracker = MMAStateTracker(
-        num_agents=template_env.num_agents,
-        agent_to_mld_link=template_env.agent_to_mld_link,
+    tracker = MMALinkStateTracker(
+        num_mld=template_env.max_mld,
+        num_links=template_env.num_links,
         history_length=all_args.mma_history_length,
     )
     maddpg = WiFiV9MMAMADDPG(
-        num_agents=template_env.num_agents,
+        num_agents=template_env.max_mld,
         state_dim=tracker.state_dim,
         actor_hidden_dim=all_args.mma_actor_hidden_dim,
         critic_hidden_dim=all_args.mma_critic_hidden_dim,
@@ -199,23 +205,54 @@ def main(args):
 
         while True:
             states = tracker.states.copy()
-            mask = ready_active_mask(env)
-            available = env._build_available_actions()
-            actions_onehot = maddpg.select_actions(states, active_mask=mask, available_actions=available, explore=True)
-            env_actions = onehot_to_env_actions(actions_onehot)
+            masks_by_link = [
+                ready_active_mld_mask(env, link_id)
+                for link_id in range(env.num_links)
+            ]
+            actions_by_link = np.zeros((env.max_mld, env.num_links, 2), dtype=np.float32)
+            actions_by_link[:, :, 0] = 1.0
+            for link_id, mask in enumerate(masks_by_link):
+                if not np.any(mask):
+                    continue
+                actions_by_link[:, link_id, :] = maddpg.select_actions(
+                    states[:, link_id, :],
+                    active_mask=mask,
+                    explore=True,
+                )
+            env_actions = build_env_actions(env, actions_by_link)
             transmit_count += int(env_actions.sum())
-            action_count += int(mask.sum())
+            action_count += int(sum(mask.sum() for mask in masks_by_link))
             _, _, _, dones, infos, _ = env.step(env_actions)
 
-            rewards, link_obs, _, success_raw = tracker.build_rewards(
-                env, actions_onehot, infos, mask, all_args.mma_alpha
-            )
-            next_states = tracker.update(actions_onehot, link_obs, success_raw, mask)
-            maddpg.replay_buffer.add(states, actions_onehot, rewards, next_states, mask)
-            loss = maddpg.learn()
-            if loss is not None:
-                losses.append(loss)
-            episode_reward += float(np.sum(rewards[mask])) if np.any(mask) else 0.0
+            for link_id, mask in enumerate(masks_by_link):
+                if not np.any(mask):
+                    continue
+                rewards, link_obs, _, success_raw = tracker.build_rewards(
+                    env,
+                    actions_by_link[:, link_id, :],
+                    infos,
+                    mask,
+                    link_id,
+                    all_args.mma_alpha,
+                )
+                next_states = tracker.update_link(
+                    link_id,
+                    actions_by_link[:, link_id, :],
+                    link_obs,
+                    success_raw,
+                    mask,
+                )
+                maddpg.replay_buffer.add(
+                    states[:, link_id, :],
+                    actions_by_link[:, link_id, :],
+                    rewards,
+                    next_states,
+                    mask,
+                )
+                loss = maddpg.learn()
+                if loss is not None:
+                    losses.append(loss)
+                episode_reward += float(np.sum(rewards[mask]))
 
             while env.t >= next_arrival_step and not bool(np.all(dones)):
                 env.add_packet_arrivals(all_args.round_length)
