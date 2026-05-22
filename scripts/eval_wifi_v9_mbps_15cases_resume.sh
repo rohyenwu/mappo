@@ -24,7 +24,6 @@ TAG="parallel_vec4_d2lt_mldsucc1_sld07_10_ntop1_cidle03"
 COMMON_ARGS=(
   --env_name WiFi_v9
   --algorithm_name mappo
-  --cuda
   --max_mld 30
   --max_sld 10
   --round_length 500
