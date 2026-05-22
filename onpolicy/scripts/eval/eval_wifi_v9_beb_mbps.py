@@ -76,6 +76,7 @@ def parse_args(args, parser):
     parser.add_argument("--c_idle", type=float, default=0.3)
     parser.add_argument("--theta_scale", type=float, default=1.0)
     parser.add_argument("--eval_duration_sec", type=float, default=30.0)
+    parser.add_argument("--live_log_interval_sec", type=float, default=1.0)
     parser.add_argument("--slot_time_sec", type=float, default=9e-6)
     parser.add_argument("--phy_preamble_sec", type=float, default=20e-6)
     parser.add_argument("--sifs_sec", type=float, default=16e-6)
@@ -128,6 +129,8 @@ def main(args):
         prev_link_successes = env.link_successes.copy()
         prev_sld_success = int(env.round_sld_success)
         prev_link_packet_successes = env.link_packet_successes.copy()
+        live_interval = max(float(all_args.live_log_interval_sec), 0.0)
+        next_live_report_sec = live_interval if live_interval > 0.0 else float("inf")
 
         while not accumulator.done():
             actions, pending_mask = mac.act(env)
@@ -145,6 +148,27 @@ def main(args):
             )
             step_slots = infos[0].get("step_slots", env.last_step_slots) if infos else env.last_step_slots
             accumulator.add_step(link_events, step_slots=step_slots)
+
+            if live_interval > 0.0 and (
+                accumulator.elapsed_sec >= next_live_report_sec or accumulator.done()
+            ):
+                live_metrics = accumulator.as_metrics(
+                    duration_sec=max(accumulator.elapsed_sec, 1e-12)
+                )
+                live_tx_ratio = (
+                    float(transmit_count) / float(action_count) if action_count > 0 else 0.0
+                )
+                print(
+                    f"[BEB Mbps Live] Episode {episode + 1}/{all_args.eval_episodes} | "
+                    f"elapsed={accumulator.elapsed_sec:.4f}/{all_args.eval_duration_sec:.4f} | "
+                    f"mbps/system={live_metrics['mbps/system']:.4f} | "
+                    f"mbps/mld_total={live_metrics['mbps/mld_total']:.4f} | "
+                    f"mbps/sld_total={live_metrics['mbps/sld_total']:.4f} | "
+                    f"tx_ratio={live_tx_ratio:.4f}",
+                    flush=True,
+                )
+                while next_live_report_sec <= accumulator.elapsed_sec:
+                    next_live_report_sec += live_interval
 
             if bool(np.all(dones)):
                 if accumulator.done():
@@ -177,7 +201,8 @@ def main(args):
             f"mbps/system={metrics['mbps/system']:.4f} | "
             f"mbps/mld_total={metrics['mbps/mld_total']:.4f} | "
             f"mbps/sld_total={metrics['mbps/sld_total']:.4f} | "
-            f"tx_ratio={metrics['action/transmit_ratio']:.4f}"
+            f"tx_ratio={metrics['action/transmit_ratio']:.4f}",
+            flush=True,
         )
 
     summary = summarize_metrics(episode_metrics)

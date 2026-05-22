@@ -143,8 +143,13 @@ class MbpsAccumulator:
                 self.success_type_counts[link_id][success_type] += fraction
         return fraction
 
-    def as_metrics(self) -> dict:
-        duration_sec = max(self.time_model.eval_duration_sec, 1e-12)
+    def as_metrics(self, duration_sec: float | None = None) -> dict:
+        duration_sec = (
+            self.time_model.eval_duration_sec
+            if duration_sec is None
+            else float(duration_sec)
+        )
+        duration_sec = max(duration_sec, 1e-12)
         mbps_24 = self.bits_mld_24 / duration_sec / 1e6
         mbps_5 = self.bits_mld_5 / duration_sec / 1e6
         mbps_sld = self.bits_sld / duration_sec / 1e6
