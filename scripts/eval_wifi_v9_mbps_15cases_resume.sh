@@ -98,7 +98,7 @@ run_rl_50_resume() {
       --stochastic \
       --wandb_project "WiFi_v9_rl_eval_mbps_${duration}s_15case" \
       --wandb_group "wifi_v9_15case_${TAG}_${duration}s" \
-      --wandb_run_name "rl_15case_${TAG}_${duration}s_m${mld}_s${sld}_ep${EVAL_EPISODES}_resume_cpu" \
+      --wandb_run_name "rl_15case_${TAG}_${duration}s_m${mld}_s${sld}_ep${EVAL_EPISODES}_resume" \
       --model_dir "${MODEL_DIR}"
   done
 }
@@ -120,7 +120,7 @@ run_beb_duration() {
       --eval_duration_sec "${duration}" \
       --wandb_project "WiFi_v9_beb_eval_mbps_${duration}s_15case" \
       --wandb_group "wifi_v9_15case_${TAG}_${duration}s" \
-      --wandb_run_name "beb_15case_${TAG}_${duration}s_m${mld}_s${sld}_ep${EVAL_EPISODES}_resume_cpu"
+      --wandb_run_name "beb_15case_${TAG}_${duration}s_m${mld}_s${sld}_ep${EVAL_EPISODES}_resume"
   done
 }
 
@@ -148,7 +148,7 @@ compare_duration() {
     --title "WIFI v9 BEB vs RL Mbps Comparison (${duration}s)" \
     --wandb_project "WiFi_v9_mbps_compare_${duration}s_15case" \
     --wandb_group "wifi_v9_15case_${TAG}_${duration}s" \
-    --wandb_run_name "beb_vs_rl_15case_${TAG}_${duration}s_resume_cpu"
+    --wandb_run_name "beb_vs_rl_15case_${TAG}_${duration}s_resume"
 }
 
 run_rl_50_resume
