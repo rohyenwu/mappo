@@ -123,7 +123,7 @@ class WiFiEnvV9:
 
         self.usage_ema_alpha = 0.2
 
-        self.obs_dim = 9
+        self.obs_dim = 11
         obs_low = np.zeros(self.obs_dim, dtype=np.float32)
         obs_high = np.ones(self.obs_dim, dtype=np.float32)
         self.observation_space = [
@@ -352,6 +352,8 @@ class WiFiEnvV9:
             prev_action_peer = float(self.prev_actions[peer_aid])
             link_usage_ema = float(self.link_usage_ema[link_id])
             d2lt_self = min(self.d2lt_slots[aid], self.round_length) / float(max(self.round_length, 1))
+            active_mld_norm = self.active_mld / max(self.max_mld, 1)
+            active_sld_norm = self.active_sld / max(self.max_sld, 1)
             link_onehot = [1.0, 0.0] if link_id == 0 else [0.0, 1.0]
             obs[aid] = [
                 shared_load,
@@ -361,6 +363,8 @@ class WiFiEnvV9:
                 prev_action_peer,
                 link_usage_ema,
                 d2lt_self,
+                active_mld_norm,
+                active_sld_norm,
                 *link_onehot,
             ]
         return obs
