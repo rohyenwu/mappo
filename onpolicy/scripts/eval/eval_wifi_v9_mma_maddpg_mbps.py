@@ -114,6 +114,7 @@ def parse_args(args, parser):
     parser.add_argument("--mma_learning_interval", type=int, default=100)
     parser.add_argument("--mma_update_interval", type=int, default=200)
     parser.add_argument("--mma_checkpoint", type=str, required=True)
+    parser.add_argument("--stochastic", action="store_true")
     parser.add_argument("--wandb_entity", type=str, default=None)
     parser.add_argument("--wandb_project", type=str, default="WiFi_v9_mma_maddpg_eval_mbps")
     parser.add_argument("--wandb_group", type=str, default="compare_wifi_v9_mma_maddpg_mbps")
@@ -208,7 +209,7 @@ def main(args):
                 actions_by_link[:, link_id, :] = maddpg.select_actions(
                     states[:, link_id, :],
                     active_mask=mask,
-                    explore=False,
+                    explore=all_args.stochastic,
                 )
             env_actions = build_env_actions(env, actions_by_link)
             transmit_count += int(env_actions.sum())
