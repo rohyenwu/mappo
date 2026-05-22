@@ -350,6 +350,7 @@ class WiFiEnvV9:
             prev_action_self = float(self.prev_actions[aid])
             peer_aid = aid + 1 if (aid % 2 == 0) else aid - 1
             prev_action_peer = float(self.prev_actions[peer_aid])
+            # Keep these slots aligned with the v9 model trained with localobs.
             busy_flag = float(self.link_busy_slots[link_id] > 0)
             idle_progress = min(self.link_idle_slots[link_id], DIFS_SLOTS) / float(DIFS_SLOTS)
             link_usage_ema = float(self.link_usage_ema[link_id])
