@@ -212,12 +212,17 @@ class WiFiV9MMAMADDPG:
             state_dict = actor_state_dicts[aid % checkpoint_agents]
             agent.actor.load_state_dict(state_dict)
             agent.target_actor.load_state_dict(state_dict)
-        if "critic_state_dicts" in checkpoint:
+        if "critic_state_dicts" in checkpoint and checkpoint_agents == self.num_agents:
             critic_state_dicts = checkpoint["critic_state_dicts"]
             for aid, agent in enumerate(self.model.agents):
                 state_dict = critic_state_dicts[aid % len(critic_state_dicts)]
                 agent.critic.load_state_dict(state_dict)
                 agent.target_critic.load_state_dict(state_dict)
+        elif "critic_state_dicts" in checkpoint:
+            print(
+                "[MMA-MADDPG] Skipping critic load during agent expansion; "
+                "evaluation uses actors only."
+            )
         return checkpoint
 
 
