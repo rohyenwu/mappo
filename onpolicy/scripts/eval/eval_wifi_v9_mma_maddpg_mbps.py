@@ -115,6 +115,7 @@ def parse_args(args, parser):
     parser.add_argument("--mma_update_interval", type=int, default=200)
     parser.add_argument("--mma_checkpoint", type=str, required=True)
     parser.add_argument("--stochastic", action="store_true")
+    parser.add_argument("--allow_agent_expand", action="store_true")
     parser.add_argument("--wandb_entity", type=str, default=None)
     parser.add_argument("--wandb_project", type=str, default="WiFi_v9_mma_maddpg_eval_mbps")
     parser.add_argument("--wandb_group", type=str, default="compare_wifi_v9_mma_maddpg_mbps")
@@ -176,7 +177,11 @@ def main(args):
         device=device,
         seed=all_args.seed,
     )
-    maddpg.load(all_args.mma_checkpoint, map_location=device)
+    maddpg.load(
+        all_args.mma_checkpoint,
+        map_location=device,
+        allow_agent_expand=all_args.allow_agent_expand,
+    )
     time_model = build_time_model(all_args)
 
     episode_metrics = []

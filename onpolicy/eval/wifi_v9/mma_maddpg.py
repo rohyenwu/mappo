@@ -190,20 +190,32 @@ class WiFiV9MMAMADDPG:
             payload.update(extra)
         torch.save(payload, path)
 
-    def load(self, path, map_location=None):
+    def load(self, path, map_location=None, allow_agent_expand=False):
         checkpoint = torch.load(path, map_location=map_location or self.device)
         checkpoint_agents = int(checkpoint.get("num_agents", len(checkpoint["actor_state_dicts"])))
         if checkpoint_agents != self.num_agents:
-            raise ValueError(
-                f"MMA checkpoint has {checkpoint_agents} agents, "
-                f"but this paper-aligned model expects {self.num_agents}. "
-                "Retrain MMA-MADDPG with the current MLD-level formulation."
+            if not allow_agent_expand:
+                raise ValueError(
+                    f"MMA checkpoint has {checkpoint_agents} agents, "
+                    f"but this paper-aligned model expects {self.num_agents}. "
+                    "Retrain MMA-MADDPG with the current MLD-level formulation, "
+                    "or pass --allow_agent_expand for evaluation-only actor reuse."
+                )
+            if checkpoint_agents < 1:
+                raise ValueError("MMA checkpoint does not contain any agents to expand.")
+            print(
+                f"[MMA-MADDPG] Expanding checkpoint agents "
+                f"{checkpoint_agents} -> {self.num_agents} by cyclic actor reuse."
             )
-        for agent, state_dict in zip(self.model.agents, checkpoint["actor_state_dicts"]):
+        actor_state_dicts = checkpoint["actor_state_dicts"]
+        for aid, agent in enumerate(self.model.agents):
+            state_dict = actor_state_dicts[aid % checkpoint_agents]
             agent.actor.load_state_dict(state_dict)
             agent.target_actor.load_state_dict(state_dict)
         if "critic_state_dicts" in checkpoint:
-            for agent, state_dict in zip(self.model.agents, checkpoint["critic_state_dicts"]):
+            critic_state_dicts = checkpoint["critic_state_dicts"]
+            for aid, agent in enumerate(self.model.agents):
+                state_dict = critic_state_dicts[aid % len(critic_state_dicts)]
                 agent.critic.load_state_dict(state_dict)
                 agent.target_critic.load_state_dict(state_dict)
         return checkpoint
