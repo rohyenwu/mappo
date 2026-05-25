@@ -224,6 +224,7 @@ def main(args):
                     f"mbps/system={live_metrics['mbps/system']:.4f} | "
                     f"mbps/mld_total={live_metrics['mbps/mld_total']:.4f} | "
                     f"mbps/sld_total={live_metrics['mbps/sld_total']:.4f} | "
+                    f"collision_rate={live_metrics['collision_rate/system_per_event']:.4f} | "
                     f"tx_ratio={live_tx_ratio:.4f}",
                     flush=True,
                 )
@@ -266,6 +267,7 @@ def main(args):
             f"mbps/system={metrics['mbps/system']:.4f} | "
             f"mbps/mld_total={metrics['mbps/mld_total']:.4f} | "
             f"mbps/sld_total={metrics['mbps/sld_total']:.4f} | "
+            f"collision_rate={metrics['collision_rate/system_per_event']:.4f} | "
             f"tx_ratio={metrics['action/transmit_ratio']:.4f}",
             flush=True,
         )
