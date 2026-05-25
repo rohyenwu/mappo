@@ -52,6 +52,8 @@ def make_wifi_env(args, seed: int):
         slot_time_sec=args.slot_time_sec,
         episode_duration_sec=args.eval_duration_sec * 100.0,
         control_window_sec=args.control_window_sec,
+        arrival_tick_sec=args.arrival_tick_sec,
+        arrival_rate_scale=args.arrival_rate_scale,
         queue_capacity=args.queue_capacity,
     )
     env.seed(seed)
@@ -98,6 +100,8 @@ def parse_args(args, parser):
     parser.add_argument("--live_log_interval_sec", type=float, default=1.0)
     parser.add_argument("--slot_time_sec", type=float, default=9e-6)
     parser.add_argument("--control_window_sec", type=float, default=0.05)
+    parser.add_argument("--arrival_tick_sec", type=float, default=0.005)
+    parser.add_argument("--arrival_rate_scale", type=float, default=None)
     parser.add_argument("--queue_capacity", type=int, default=None)
     parser.add_argument("--phy_preamble_sec", type=float, default=20e-6)
     parser.add_argument("--sifs_sec", type=float, default=16e-6)

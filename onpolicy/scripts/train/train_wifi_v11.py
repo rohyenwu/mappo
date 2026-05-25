@@ -68,6 +68,8 @@ def make_env(all_args, seed_offset: int):
                 slot_time_sec=all_args.slot_time_sec,
                 episode_duration_sec=all_args.episode_duration_sec,
                 control_window_sec=all_args.control_window_sec,
+                arrival_tick_sec=all_args.arrival_tick_sec,
+                arrival_rate_scale=all_args.arrival_rate_scale,
                 queue_capacity=all_args.queue_capacity,
             )
             env.seed(seed_offset + rank * 1000)
@@ -216,6 +218,21 @@ def parse_args(args, parser):
         type=float,
         default=0.05,
         help="Continuous-traffic control window for arrivals and sparse rewards.",
+    )
+    parser.add_argument(
+        "--arrival_tick_sec",
+        type=float,
+        default=0.005,
+        help="Poisson traffic arrival tick. Queue counts are updated at this interval.",
+    )
+    parser.add_argument(
+        "--arrival_rate_scale",
+        type=float,
+        default=None,
+        help=(
+            "Packets/sec scale multiplied by per-link mu and summed across links. "
+            "Defaults to round_length / control_window_sec."
+        ),
     )
     parser.add_argument(
         "--queue_capacity",
