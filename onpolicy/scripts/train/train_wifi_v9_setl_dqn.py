@@ -140,8 +140,8 @@ def parse_args(args, parser):
     parser.add_argument("--dqn_memory_size", type=int, default=20000)
     parser.add_argument("--dqn_min_replay_size", type=int, default=100)
     parser.add_argument("--dqn_target_update_interval", type=int, default=200)
-    parser.add_argument("--dqn_epsilon_start", type=float, default=0.1)
-    parser.add_argument("--dqn_epsilon_end", type=float, default=0.01)
+    parser.add_argument("--dqn_epsilon_start", type=float, default=1.0)
+    parser.add_argument("--dqn_epsilon_end", type=float, default=0.0)
     parser.add_argument("--dqn_epsilon_decay", type=float, default=1e-6)
     parser.add_argument(
         "--setl_train_episodes",
