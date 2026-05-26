@@ -106,7 +106,7 @@ def parse_args(args, parser):
     parser.add_argument("--basic_rate_bps", type=float, default=24e6)
     parser.add_argument("--data_rate_24_bps", type=float, default=24e6)
     parser.add_argument("--data_rate_5_bps", type=float, default=48e6)
-    parser.add_argument("--setl_thresholds", type=str, default="16,32,64,128,256,512,1024")
+    parser.add_argument("--setl_thresholds", type=str, default="128,256,384,512,640,768,896,1024")
     parser.add_argument("--setl_linear_step", type=int, default=32)
     parser.add_argument(
         "--setl_feedback_report_bits",

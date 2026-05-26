@@ -40,7 +40,7 @@ class SETLMLDBackoffMAC:
         self,
         num_agents: int,
         agent_to_mld_link,
-        thresholds: Iterable[int] = (16, 32, 64, 128, 256, 512, 1024),
+        thresholds: Iterable[int] = (128, 256, 384, 512, 640, 768, 896, 1024),
         cw_min: int = CW_MIN,
         cw_max: int = CW_MAX,
         linear_step: int = SETL_LINEAR_STEP,

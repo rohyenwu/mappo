@@ -130,7 +130,7 @@ def parse_args(args, parser):
     parser.add_argument("--non_top_tx_penalty", type=float, default=1.0)
     parser.add_argument("--slot_time_sec", type=float, default=9e-6)
     parser.add_argument("--episode_duration_sec", type=float, default=0.05)
-    parser.add_argument("--setl_thresholds", type=str, default="16,32,64,128,256,512,1024")
+    parser.add_argument("--setl_thresholds", type=str, default="128,256,384,512,640,768,896,1024")
     parser.add_argument("--setl_linear_step", type=int, default=32)
     parser.add_argument("--dqn_hidden_size", type=int, default=128)
     parser.add_argument("--dqn_hidden_layers", type=int, default=3)
