@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 
@@ -28,6 +29,14 @@ def parse_args():
         help=(
             "Also create a BEB/RL doughnut chart from aggregated "
             "events/system/{success,collision,idle} counts across all cases."
+        ),
+    )
+    parser.add_argument(
+        "--include_improvement_by_sld",
+        action="store_true",
+        help=(
+            "Also create a line chart of system Mbps improvement over BEB, "
+            "grouped by SLD count. Case labels must include m<num>_s<num>."
         ),
     )
     return parser.parse_args()
@@ -58,6 +67,104 @@ def parse_case_spec(spec: str):
         "beb": beb_summary,
         "rl": rl_summary,
     }
+
+
+def parse_m_s_label(label: str):
+    match = re.search(r"m(\d+)_s(\d+)", label)
+    if not match:
+        raise ValueError(
+            f"Cannot parse MLD/SLD counts from case label '{label}'. "
+            "Expected a label containing m<num>_s<num>, for example m10_s2."
+        )
+    return int(match.group(1)), int(match.group(2))
+
+
+def save_system_improvement_by_sld_chart(plt, output_path: Path, title: str, cases):
+    improvement_by_sld = {}
+    for case in cases:
+        mld_count, sld_count = parse_m_s_label(case["label"])
+        beb_value = float(case["beb"].get("mbps/system", 0.0))
+        rl_value = float(case["rl"].get("mbps/system", 0.0))
+        improvement = 0.0
+        if beb_value > 0.0:
+            improvement = (rl_value / beb_value - 1.0) * 100.0
+        improvement_by_sld.setdefault(sld_count, []).append(
+            {
+                "mld_count": mld_count,
+                "improvement_percent": improvement,
+                "beb_mbps": beb_value,
+                "rl_mbps": rl_value,
+                "label": case["label"],
+            }
+        )
+
+    fig, ax = plt.subplots(figsize=(8.0, 5.0))
+    colors = {
+        2: "#4c78a8",
+        4: "#f58518",
+        6: "#54a24b",
+    }
+    markers = {
+        2: "o",
+        4: "s",
+        6: "^",
+    }
+
+    all_improvements = []
+    for sld_count in sorted(improvement_by_sld):
+        rows = sorted(improvement_by_sld[sld_count], key=lambda row: row["mld_count"])
+        x_values = [row["mld_count"] for row in rows]
+        y_values = [row["improvement_percent"] for row in rows]
+        all_improvements.extend(y_values)
+        ax.plot(
+            x_values,
+            y_values,
+            marker=markers.get(sld_count, "o"),
+            linewidth=2.2,
+            markersize=6.0,
+            label=f"SLD={sld_count}",
+            color=colors.get(sld_count),
+        )
+        for x_value, y_value in zip(x_values, y_values):
+            ax.text(
+                x_value,
+                y_value,
+                f"{y_value:.1f}%",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+            )
+
+    ax.axhline(0.0, color="#334155", linewidth=1.0, alpha=0.65)
+    ax.set_title(f"{title} - RL Improvement over BEB")
+    ax.set_xlabel("Number of MLDs")
+    ax.set_ylabel("Throughput Improvement over BEB (%)")
+    ax.set_xticks(sorted({parse_m_s_label(case["label"])[0] for case in cases}))
+    ax.grid(axis="y", alpha=0.25)
+    ax.legend(frameon=False)
+
+    if all_improvements:
+        ymin = min(all_improvements)
+        ymax = max(all_improvements)
+        padding = max(2.0, (ymax - ymin) * 0.18)
+        ax.set_ylim(ymin - padding, ymax + padding)
+
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+    data_path = output_path.with_suffix(".json")
+    with open(data_path, "w", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "metric": "system_mbps_improvement_over_beb_percent",
+                "formula": "(RL / BEB - 1) * 100",
+                "series": improvement_by_sld,
+            },
+            handle,
+            indent=2,
+        )
+    return data_path
 
 
 def case_event_rates(case, policy):
@@ -222,6 +329,7 @@ def main():
     output_stem = Path(args.output_name).stem
     output_suffix = Path(args.output_name).suffix or ".png"
     output_paths = []
+    data_output_paths = []
 
     for metric_key, metric_title, metric_slug in metric_keys:
         fig, ax = plt.subplots(figsize=(max(7.0, 0.55 * len(labels)), 5.0))
@@ -272,9 +380,23 @@ def main():
             save_case_event_doughnut_pair(plt, case_output_path, args.title, case)
             output_paths.append(case_output_path)
 
+    if args.include_improvement_by_sld:
+        improvement_output_path = (
+            output_dir / f"{output_stem}_system_mbps_improvement_by_sld{output_suffix}"
+        )
+        improvement_data_path = save_system_improvement_by_sld_chart(
+            plt, improvement_output_path, args.title, cases
+        )
+        output_paths.append(improvement_output_path)
+        data_output_paths.append(improvement_data_path)
+
     print("Saved WiFi Mbps comparison charts to:")
     for output_path in output_paths:
         print(f"  {output_path}")
+    if data_output_paths:
+        print("Saved WiFi Mbps comparison data to:")
+        for output_path in data_output_paths:
+            print(f"  {output_path}")
 
     if args.wandb_project:
         try:
