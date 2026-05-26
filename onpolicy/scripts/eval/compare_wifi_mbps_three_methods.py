@@ -99,6 +99,21 @@ def parse_metric_key_overrides(override_text: str | None, method_count: int):
     return [None if value in ("", "-") else value for value in overrides]
 
 
+SETL_EFFECTIVE_KEY_BY_RAW_KEY = {
+    "mbps/2_4GHz/total": "mbps/2_4GHz/total_effective_after_setl_feedback",
+    "mbps/5GHz/total": "mbps/5GHz/total_effective_after_setl_feedback",
+    "mbps/mld_total": "mbps/mld_total_effective_after_setl_feedback",
+    "mbps/sld_total": "mbps/sld_total_effective_after_setl_feedback",
+    "mbps/system": "mbps/system_effective_after_setl_feedback",
+}
+
+
+def resolve_metric_key(metric_key: str, override_key: str | None):
+    if override_key != "mbps/system_effective_after_setl_feedback":
+        return override_key or metric_key
+    return SETL_EFFECTIVE_KEY_BY_RAW_KEY.get(metric_key, metric_key)
+
+
 def main():
     args = parse_args()
 
@@ -146,7 +161,10 @@ def main():
         fig, ax = plt.subplots(figsize=(max(8.5, 0.65 * len(labels)), 5.2))
         method_values = []
         for method_idx in range(3):
-            method_metric_key = metric_key_overrides[method_idx] or metric_key
+            method_metric_key = resolve_metric_key(
+                metric_key,
+                metric_key_overrides[method_idx],
+            )
             values = [
                 fallback_metric(case["summaries"][method_idx], method_metric_key, case["label"])
                 for case in cases
