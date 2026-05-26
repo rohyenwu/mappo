@@ -39,6 +39,14 @@ def parse_args():
             "grouped by SLD count. Case labels must include m<num>_s<num>."
         ),
     )
+    parser.add_argument(
+        "--include_throughput_trend_by_sld",
+        action="store_true",
+        help=(
+            "Also create SLD subplots showing BEB/RL system Mbps trends as "
+            "MLD count increases, plus drop-rate stability metrics."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -77,6 +85,168 @@ def parse_m_s_label(label: str):
             "Expected a label containing m<num>_s<num>, for example m10_s2."
         )
     return int(match.group(1)), int(match.group(2))
+
+
+def cases_by_sld(cases):
+    grouped = {}
+    for case in cases:
+        mld_count, sld_count = parse_m_s_label(case["label"])
+        grouped.setdefault(sld_count, []).append(
+            {
+                "mld_count": mld_count,
+                "label": case["label"],
+                "beb_mbps": float(case["beb"].get("mbps/system", 0.0)),
+                "rl_mbps": float(case["rl"].get("mbps/system", 0.0)),
+            }
+        )
+    return {
+        sld_count: sorted(rows, key=lambda row: row["mld_count"])
+        for sld_count, rows in grouped.items()
+    }
+
+
+def linear_slope(x_values, y_values):
+    count = len(x_values)
+    if count < 2:
+        return 0.0
+    x_mean = sum(x_values) / count
+    y_mean = sum(y_values) / count
+    denominator = sum((x_value - x_mean) ** 2 for x_value in x_values)
+    if denominator <= 0.0:
+        return 0.0
+    numerator = sum(
+        (x_value - x_mean) * (y_value - y_mean)
+        for x_value, y_value in zip(x_values, y_values)
+    )
+    return numerator / denominator
+
+
+def stability_metrics_for_rows(rows):
+    x_values = [row["mld_count"] for row in rows]
+    metrics = {}
+    for policy, key in (("BEB", "beb_mbps"), ("RL", "rl_mbps")):
+        y_values = [row[key] for row in rows]
+        first_value = y_values[0] if y_values else 0.0
+        last_value = y_values[-1] if y_values else 0.0
+        drop_percent = 0.0
+        retention_percent = 0.0
+        if first_value > 0.0:
+            drop_percent = (first_value - last_value) / first_value * 100.0
+            retention_percent = last_value / first_value * 100.0
+        metrics[policy] = {
+            "first_mbps": first_value,
+            "last_mbps": last_value,
+            "drop_percent_from_first_to_last": drop_percent,
+            "retention_percent_at_last": retention_percent,
+            "linear_slope_mbps_per_mld": linear_slope(x_values, y_values),
+            "mean_mbps": sum(y_values) / len(y_values) if y_values else 0.0,
+        }
+
+    beb_drop = metrics["BEB"]["drop_percent_from_first_to_last"]
+    rl_drop = metrics["RL"]["drop_percent_from_first_to_last"]
+    drop_reduction_percent = 0.0
+    if beb_drop > 0.0:
+        drop_reduction_percent = (beb_drop - rl_drop) / beb_drop * 100.0
+    metrics["RL_vs_BEB"] = {
+        "drop_reduction_percent": drop_reduction_percent,
+        "slope_delta_mbps_per_mld": (
+            metrics["RL"]["linear_slope_mbps_per_mld"]
+            - metrics["BEB"]["linear_slope_mbps_per_mld"]
+        ),
+        "mean_mbps_gain_percent": (
+            (metrics["RL"]["mean_mbps"] / metrics["BEB"]["mean_mbps"] - 1.0) * 100.0
+            if metrics["BEB"]["mean_mbps"] > 0.0
+            else 0.0
+        ),
+    }
+    return metrics
+
+
+def save_system_throughput_trend_by_sld_chart(plt, output_path: Path, title: str, cases):
+    grouped = cases_by_sld(cases)
+    sld_counts = sorted(grouped)
+    fig_width = max(5.2, 4.2 * len(sld_counts))
+    fig, axes = plt.subplots(1, len(sld_counts), figsize=(fig_width, 4.8), sharey=True)
+    if len(sld_counts) == 1:
+        axes = [axes]
+
+    metric_rows = {}
+    all_values = []
+    for ax, sld_count in zip(axes, sld_counts):
+        rows = grouped[sld_count]
+        x_values = [row["mld_count"] for row in rows]
+        beb_values = [row["beb_mbps"] for row in rows]
+        rl_values = [row["rl_mbps"] for row in rows]
+        all_values.extend(beb_values + rl_values)
+
+        ax.plot(
+            x_values,
+            beb_values,
+            marker="o",
+            linewidth=2.2,
+            markersize=6.0,
+            label="BEB",
+            color="#4c78a8",
+        )
+        ax.plot(
+            x_values,
+            rl_values,
+            marker="s",
+            linewidth=2.2,
+            markersize=6.0,
+            label="RL",
+            color="#f58518",
+        )
+        ax.set_title(f"SLD={sld_count}")
+        ax.set_xlabel("Number of MLDs")
+        ax.set_xticks(x_values)
+        ax.grid(axis="y", alpha=0.25)
+        ax.legend(frameon=False)
+
+        metrics = stability_metrics_for_rows(rows)
+        metric_rows[sld_count] = {
+            "points": rows,
+            "metrics": metrics,
+        }
+        ax.text(
+            0.02,
+            0.04,
+            (
+                f"BEB drop: {metrics['BEB']['drop_percent_from_first_to_last']:.1f}%\n"
+                f"RL drop: {metrics['RL']['drop_percent_from_first_to_last']:.1f}%"
+            ),
+            transform=ax.transAxes,
+            ha="left",
+            va="bottom",
+            fontsize=8,
+            bbox={"boxstyle": "round,pad=0.28", "facecolor": "white", "alpha": 0.78, "edgecolor": "#cbd5e1"},
+        )
+
+    axes[0].set_ylabel("System Throughput (Mbps)")
+    if all_values:
+        ymin = min(all_values)
+        ymax = max(all_values)
+        padding = max(1.0, (ymax - ymin) * 0.15)
+        axes[0].set_ylim(max(0.0, ymin - padding), ymax + padding)
+
+    fig.suptitle(f"{title} - Throughput Trend under Increasing MLDs")
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+
+    data_path = output_path.with_suffix(".json")
+    with open(data_path, "w", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "metric": "system_mbps_trend_by_sld",
+                "drop_percent_formula": "(first_mbps - last_mbps) / first_mbps * 100",
+                "retention_percent_formula": "last_mbps / first_mbps * 100",
+                "series": metric_rows,
+            },
+            handle,
+            indent=2,
+        )
+    return data_path
 
 
 def save_system_improvement_by_sld_chart(plt, output_path: Path, title: str, cases):
@@ -389,6 +559,16 @@ def main():
         )
         output_paths.append(improvement_output_path)
         data_output_paths.append(improvement_data_path)
+
+    if args.include_throughput_trend_by_sld:
+        trend_output_path = (
+            output_dir / f"{output_stem}_system_mbps_trend_by_sld{output_suffix}"
+        )
+        trend_data_path = save_system_throughput_trend_by_sld_chart(
+            plt, trend_output_path, args.title, cases
+        )
+        output_paths.append(trend_output_path)
+        data_output_paths.append(trend_data_path)
 
     print("Saved WiFi Mbps comparison charts to:")
     for output_path in output_paths:
