@@ -129,7 +129,7 @@ def parse_args(args, parser):
     parser.add_argument(
         "--setl_feedback_interval_sec",
         type=float,
-        default=0.01,
+        default=0.1024,
         help=(
             "AP-assisted feedback interval in seconds. Set to 0 to disable "
             "SETL-DQN control-overhead accounting."
