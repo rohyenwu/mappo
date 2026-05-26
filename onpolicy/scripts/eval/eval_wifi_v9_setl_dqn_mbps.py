@@ -111,7 +111,7 @@ def parse_args(args, parser):
     parser.add_argument(
         "--setl_feedback_report_bits",
         type=float,
-        default=64.0,
+        default=128.0,
         help=(
             "Conservative per-agent AP feedback report size in bits for "
             "SETL-DQN effective-throughput accounting."
@@ -120,7 +120,7 @@ def parse_args(args, parser):
     parser.add_argument(
         "--setl_feedback_broadcast_bits",
         type=float,
-        default=64.0,
+        default=128.0,
         help=(
             "Conservative AP aggregate-feedback broadcast size in bits for "
             "SETL-DQN effective-throughput accounting."
@@ -151,21 +151,86 @@ def add_setl_feedback_overhead_metrics(metrics, env, args):
     broadcast_bits = float(args.setl_feedback_broadcast_bits)
 
     active_agents = int(env.active_mld * env.num_links)
-    overhead_mbps = 0.0
-    if interval_sec > 0.0:
-        overhead_bits = active_agents * report_bits + broadcast_bits
-        overhead_mbps = overhead_bits / interval_sec / 1e6
+    active_mld = int(env.active_mld)
+    data_rates = [
+        float(args.data_rate_24_bps),
+        float(args.data_rate_5_bps),
+    ]
+    while len(data_rates) < int(env.num_links):
+        data_rates.append(float(args.data_rate_5_bps))
+
+    link_names = ["2_4GHz", "5GHz"]
+    while len(link_names) < int(env.num_links):
+        link_names.append(f"link_{len(link_names)}")
+
+    report_airtimes = []
+    broadcast_airtimes = []
+    feedback_airtimes = []
+    airtime_fractions = []
+    for link_id in range(int(env.num_links)):
+        data_rate = max(data_rates[link_id], 1.0)
+        report_airtime_sec = active_mld * report_bits / data_rate
+        broadcast_airtime_sec = (
+            broadcast_bits / float(args.basic_rate_bps)
+            if float(args.basic_rate_bps) > 0.0
+            else 0.0
+        )
+        feedback_airtime_sec = report_airtime_sec + broadcast_airtime_sec
+        airtime_fraction = 0.0
+        if interval_sec > 0.0:
+            airtime_fraction = min(feedback_airtime_sec / interval_sec, 1.0)
+
+        report_airtimes.append(report_airtime_sec)
+        broadcast_airtimes.append(broadcast_airtime_sec)
+        feedback_airtimes.append(feedback_airtime_sec)
+        airtime_fractions.append(airtime_fraction)
+
+    raw_24_mld = float(metrics.get("mbps/2_4GHz/mld", 0.0))
+    raw_24_sld = float(metrics.get("mbps/2_4GHz/sld", 0.0))
+    raw_5_mld = float(metrics.get("mbps/5GHz/mld", 0.0))
+    raw_5_sld = float(metrics.get("mbps/5GHz/sld", 0.0))
+    frac_24 = airtime_fractions[0] if airtime_fractions else 0.0
+    frac_5 = airtime_fractions[1] if len(airtime_fractions) > 1 else 0.0
+
+    effective_24_mld = raw_24_mld * (1.0 - frac_24)
+    effective_24_sld = raw_24_sld * (1.0 - frac_24)
+    effective_5_mld = raw_5_mld * (1.0 - frac_5)
+    effective_5_sld = raw_5_sld * (1.0 - frac_5)
+    effective_24_total = effective_24_mld + effective_24_sld
+    effective_5_total = effective_5_mld + effective_5_sld
+    effective_mld_total = effective_24_mld + effective_5_mld
+    effective_sld_total = effective_24_sld + effective_5_sld
+    effective_system = effective_mld_total + effective_sld_total
 
     system_raw = float(metrics.get("mbps/system", 0.0))
+    overhead_mbps = max(system_raw - effective_system, 0.0)
+
+    # Also expose the payload-rate accounting used for sensitivity checks.
+    payload_overhead_mbps = 0.0
+    if interval_sec > 0.0:
+        payload_overhead_bits = active_agents * report_bits + broadcast_bits
+        payload_overhead_mbps = payload_overhead_bits / interval_sec / 1e6
+
     metrics["setl_feedback/active_agents"] = float(active_agents)
     metrics["setl_feedback/report_bits_per_agent"] = report_bits
     metrics["setl_feedback/broadcast_bits"] = broadcast_bits
     metrics["setl_feedback/interval_sec"] = interval_sec
+    for link_id, link_name in enumerate(link_names[: int(env.num_links)]):
+        metrics[f"setl_feedback/{link_name}/report_airtime_sec"] = report_airtimes[link_id]
+        metrics[f"setl_feedback/{link_name}/broadcast_airtime_sec"] = broadcast_airtimes[link_id]
+        metrics[f"setl_feedback/{link_name}/airtime_sec_per_interval"] = feedback_airtimes[link_id]
+        metrics[f"setl_feedback/{link_name}/airtime_fraction"] = airtime_fractions[link_id]
+    metrics["setl_feedback/payload_rate_overhead_mbps"] = payload_overhead_mbps
     metrics["setl_feedback/overhead_mbps"] = overhead_mbps
-    metrics["mbps/system_effective_after_setl_feedback"] = max(
-        system_raw - overhead_mbps,
-        0.0,
-    )
+    metrics["mbps/2_4GHz/mld_effective_after_setl_feedback"] = effective_24_mld
+    metrics["mbps/2_4GHz/sld_effective_after_setl_feedback"] = effective_24_sld
+    metrics["mbps/2_4GHz/total_effective_after_setl_feedback"] = effective_24_total
+    metrics["mbps/5GHz/mld_effective_after_setl_feedback"] = effective_5_mld
+    metrics["mbps/5GHz/sld_effective_after_setl_feedback"] = effective_5_sld
+    metrics["mbps/5GHz/total_effective_after_setl_feedback"] = effective_5_total
+    metrics["mbps/mld_total_effective_after_setl_feedback"] = effective_mld_total
+    metrics["mbps/sld_total_effective_after_setl_feedback"] = effective_sld_total
+    metrics["mbps/system_effective_after_setl_feedback"] = effective_system
 
 
 def main(args):
