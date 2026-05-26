@@ -18,6 +18,16 @@ def parse_args():
     parser.add_argument("--output_dir", type=str, required=True)
     parser.add_argument("--output_name", type=str, default="wifi_mbps_three_methods.png")
     parser.add_argument("--title", type=str, default="WiFi Mbps Comparison")
+    parser.add_argument(
+        "--metric_key_overrides",
+        type=str,
+        default=None,
+        help=(
+            "Optional per-method metric keys for all charts, comma-separated. "
+            "Use '-' to keep the chart default key for a method, e.g. "
+            "'-,-,mbps/system_effective_after_setl_feedback'."
+        ),
+    )
     parser.add_argument("--wandb_project", type=str, default=None)
     parser.add_argument("--wandb_group", type=str, default=None)
     parser.add_argument("--wandb_run_name", type=str, default=None)
@@ -77,6 +87,18 @@ def fallback_metric(summary, metric_key: str, label: str):
     return float(summary.get(f"mbps/mld_{mld_id}/total", 0.0))
 
 
+def parse_metric_key_overrides(override_text: str | None, method_count: int):
+    if override_text is None:
+        return [None] * method_count
+    overrides = [part.strip() for part in override_text.split(",")]
+    if len(overrides) != method_count:
+        raise ValueError(
+            "--metric_key_overrides must contain one entry per method "
+            f"({method_count} entries expected)"
+        )
+    return [None if value in ("", "-") else value for value in overrides]
+
+
 def main():
     args = parse_args()
 
@@ -91,6 +113,10 @@ def main():
     method_names = [part.strip() for part in args.method_names.split(",") if part.strip()]
     if len(method_names) != 3:
         raise ValueError("--method_names must contain exactly three comma-separated names")
+    metric_key_overrides = parse_metric_key_overrides(
+        args.metric_key_overrides,
+        len(method_names),
+    )
 
     cases = [parse_case_spec(spec) for spec in args.case]
     metric_keys = [
@@ -120,8 +146,9 @@ def main():
         fig, ax = plt.subplots(figsize=(max(8.5, 0.65 * len(labels)), 5.2))
         method_values = []
         for method_idx in range(3):
+            method_metric_key = metric_key_overrides[method_idx] or metric_key
             values = [
-                fallback_metric(case["summaries"][method_idx], metric_key, case["label"])
+                fallback_metric(case["summaries"][method_idx], method_metric_key, case["label"])
                 for case in cases
             ]
             method_values.append(values)
