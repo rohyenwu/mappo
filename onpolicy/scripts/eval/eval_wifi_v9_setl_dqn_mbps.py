@@ -108,6 +108,33 @@ def parse_args(args, parser):
     parser.add_argument("--data_rate_5_bps", type=float, default=48e6)
     parser.add_argument("--setl_thresholds", type=str, default="16,32,64,128,256,512,1024")
     parser.add_argument("--setl_linear_step", type=int, default=32)
+    parser.add_argument(
+        "--setl_feedback_report_bits",
+        type=float,
+        default=64.0,
+        help=(
+            "Conservative per-agent AP feedback report size in bits for "
+            "SETL-DQN effective-throughput accounting."
+        ),
+    )
+    parser.add_argument(
+        "--setl_feedback_broadcast_bits",
+        type=float,
+        default=64.0,
+        help=(
+            "Conservative AP aggregate-feedback broadcast size in bits for "
+            "SETL-DQN effective-throughput accounting."
+        ),
+    )
+    parser.add_argument(
+        "--setl_feedback_interval_sec",
+        type=float,
+        default=0.01,
+        help=(
+            "AP-assisted feedback interval in seconds. Set to 0 to disable "
+            "SETL-DQN control-overhead accounting."
+        ),
+    )
     parser.add_argument("--dqn_hidden_size", type=int, default=128)
     parser.add_argument("--dqn_hidden_layers", type=int, default=3)
     parser.add_argument("--dqn_checkpoint", type=str, required=True)
@@ -116,6 +143,29 @@ def parse_args(args, parser):
     parser.add_argument("--wandb_group", type=str, default="compare_wifi_v9_setl_dqn_mbps")
     parser.add_argument("--wandb_run_name", type=str, default=None)
     return parser.parse_known_args(args)[0]
+
+
+def add_setl_feedback_overhead_metrics(metrics, env, args):
+    interval_sec = float(args.setl_feedback_interval_sec)
+    report_bits = float(args.setl_feedback_report_bits)
+    broadcast_bits = float(args.setl_feedback_broadcast_bits)
+
+    active_agents = int(env.active_mld * env.num_links)
+    overhead_mbps = 0.0
+    if interval_sec > 0.0:
+        overhead_bits = active_agents * report_bits + broadcast_bits
+        overhead_mbps = overhead_bits / interval_sec / 1e6
+
+    system_raw = float(metrics.get("mbps/system", 0.0))
+    metrics["setl_feedback/active_agents"] = float(active_agents)
+    metrics["setl_feedback/report_bits_per_agent"] = report_bits
+    metrics["setl_feedback/broadcast_bits"] = broadcast_bits
+    metrics["setl_feedback/interval_sec"] = interval_sec
+    metrics["setl_feedback/overhead_mbps"] = overhead_mbps
+    metrics["mbps/system_effective_after_setl_feedback"] = max(
+        system_raw - overhead_mbps,
+        0.0,
+    )
 
 
 def main(args):
@@ -215,11 +265,14 @@ def main(args):
         metrics["scenario/active_sld"] = float(env.active_sld)
         metrics["scenario/max_mld"] = float(env.max_mld)
         metrics["scenario/max_sld"] = float(env.max_sld)
+        add_setl_feedback_overhead_metrics(metrics, env, all_args)
         episode_metrics.append(metrics)
         log_episode_metrics(run, episode, metrics)
         print(
             f"[SETL-DQN Mbps Eval] Episode {episode + 1}/{all_args.eval_episodes} | "
             f"mbps/system={metrics['mbps/system']:.4f} | "
+            f"mbps/system_effective={metrics['mbps/system_effective_after_setl_feedback']:.4f} | "
+            f"overhead={metrics['setl_feedback/overhead_mbps']:.4f} | "
             f"mbps/mld_total={metrics['mbps/mld_total']:.4f} | "
             f"mbps/sld_total={metrics['mbps/sld_total']:.4f} | "
             f"tx_ratio={metrics['action/transmit_ratio']:.4f}"
