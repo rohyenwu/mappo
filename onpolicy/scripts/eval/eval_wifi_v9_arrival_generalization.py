@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 """Run WiFi v9 packet-arrival-rate generalization sweeps.
 
-This wrapper evaluates the same topology under multiple uniform packet arrival
-rates by setting mu_min = mu_max = rate for each run. It compares a trained RL
-checkpoint against BEB and saves compact CSV/JSON summaries plus trend plots.
+This wrapper evaluates the same topology under heterogeneous packet-arrival
+profiles. Each profile assigns an MLD-specific mu value through --mu_profile,
+then compares a trained RL checkpoint against BEB and saves compact CSV/JSON
+summaries plus trend plots.
 """
 
 import argparse
 import csv
 import json
+import math
 import os
+import random
 import subprocess
 import sys
 from pathlib import Path
@@ -20,6 +23,17 @@ DEFAULT_MODEL_NAME = (
     "sld07_10_ntop1_cidle03_1600k_lr1e4_ent5e3_seed1"
 )
 DEFAULT_RATES = [0.005, 0.01, 0.03, 0.06, 0.09, 0.12, 0.15, 0.18, 0.20]
+DEFAULT_PROFILE_MODES = [
+    "random_id",
+    "random_low_ood",
+    "random_high_ood",
+    "random_wide_ood",
+    "random_mixed_ood",
+]
+PROFILE_MODE_CHOICES = [
+    *DEFAULT_PROFILE_MODES,
+    "uniform_sweep",
+]
 METRIC_KEYS = [
     "mbps/system",
     "mbps/mld_total",
@@ -74,8 +88,107 @@ def summary_path(policy: str, experiment_name: str) -> Path:
     return result_dir("WiFi_v9", eval_name, experiment_name) / filename
 
 
-def build_common_args(args, mld: int, sld: int, rate: float, experiment_name: str):
-    return [
+def profile_slug(profile_case):
+    name = profile_case["name"]
+    seed = profile_case.get("seed")
+    if seed is None:
+        return name
+    return f"{name}_pseed{seed}"
+
+
+def summarize_profile(values):
+    active_values = [float(value) for value in values]
+    count = len(active_values)
+    mean_value = sum(active_values) / count if count else 0.0
+    variance = (
+        sum((value - mean_value) ** 2 for value in active_values) / count
+        if count
+        else 0.0
+    )
+    low_ood_count = sum(value < 0.01 for value in active_values)
+    high_ood_count = sum(value > 0.12 for value in active_values)
+    return {
+        "mean_mu": mean_value,
+        "min_mu": min(active_values) if active_values else 0.0,
+        "max_mu": max(active_values) if active_values else 0.0,
+        "std_mu": math.sqrt(variance),
+        "low_ood_fraction": low_ood_count / count if count else 0.0,
+        "high_ood_fraction": high_ood_count / count if count else 0.0,
+        "ood_fraction": (low_ood_count + high_ood_count) / count if count else 0.0,
+    }
+
+
+def make_mu_profile(args, active_mld: int, mode: str, profile_seed: int = None, rate=None):
+    values = [0.0] * int(args.max_mld)
+    if mode == "uniform_sweep":
+        active_values = [float(rate)] * active_mld
+    else:
+        seed = int(args.seed) * 1000003 + int(profile_seed) * 9176 + active_mld
+        rng = random.Random(seed)
+        if mode == "random_id":
+            active_values = [rng.uniform(0.01, 0.12) for _ in range(active_mld)]
+        elif mode == "random_low_ood":
+            active_values = [rng.uniform(0.001, 0.01) for _ in range(active_mld)]
+        elif mode == "random_high_ood":
+            active_values = [rng.uniform(0.12, 0.20) for _ in range(active_mld)]
+        elif mode == "random_wide_ood":
+            active_values = [rng.uniform(0.001, 0.20) for _ in range(active_mld)]
+        elif mode == "random_mixed_ood":
+            low_count = active_mld * 3 // 10
+            id_count = active_mld * 4 // 10
+            high_count = active_mld - low_count - id_count
+            active_values = (
+                [rng.uniform(0.001, 0.01) for _ in range(low_count)]
+                + [rng.uniform(0.01, 0.12) for _ in range(id_count)]
+                + [rng.uniform(0.12, 0.20) for _ in range(high_count)]
+            )
+            rng.shuffle(active_values)
+        else:
+            raise ValueError(f"Unsupported profile mode: {mode}")
+
+    values[:active_mld] = active_values
+    return values, summarize_profile(active_values)
+
+
+def build_profile_cases(args, active_mld: int):
+    cases = []
+    for mode in args.profile_mode:
+        if mode == "uniform_sweep":
+            for rate in args.rates:
+                values, stats = make_mu_profile(args, active_mld, mode, rate=rate)
+                cases.append(
+                    {
+                        "name": rate_slug(rate),
+                        "mode": mode,
+                        "seed": None,
+                        "rate": float(rate),
+                        "values": values,
+                        "stats": stats,
+                    }
+                )
+            continue
+
+        for profile_seed in args.profile_seed:
+            values, stats = make_mu_profile(args, active_mld, mode, profile_seed=profile_seed)
+            cases.append(
+                {
+                    "name": mode,
+                    "mode": mode,
+                    "seed": int(profile_seed),
+                    "rate": stats["mean_mu"],
+                    "values": values,
+                    "stats": stats,
+                }
+            )
+    return cases
+
+
+def mu_profile_text(values):
+    return ",".join(f"{float(value):.8f}" for value in values)
+
+
+def build_common_args(args, mld: int, sld: int, profile_case, experiment_name: str):
+    command_args = [
         "--env_name",
         "WiFi_v9",
         "--algorithm_name",
@@ -92,10 +205,6 @@ def build_common_args(args, mld: int, sld: int, rate: float, experiment_name: st
         str(sld),
         "--round_length",
         str(args.round_length),
-        "--mu_min",
-        str(rate),
-        "--mu_max",
-        str(rate),
         "--eta",
         str(args.eta),
         "--zeta",
@@ -128,14 +237,22 @@ def build_common_args(args, mld: int, sld: int, rate: float, experiment_name: st
         str(args.seed),
         "--use_wandb",
     ]
+    if profile_case["mode"] == "uniform_sweep":
+        command_args.extend(["--mu_min", str(profile_case["rate"]), "--mu_max", str(profile_case["rate"])])
+    else:
+        command_args.extend(["--mu_profile", mu_profile_text(profile_case["values"])])
+    return command_args
 
 
-def run_eval(args, policy: str, mld: int, sld: int, rate: float):
-    label = f"{scenario_slug(mld, sld)}_{rate_slug(rate)}_{args.tag}"
+def run_eval(args, policy: str, mld: int, sld: int, profile_case):
+    label = f"{scenario_slug(mld, sld)}_{profile_slug(profile_case)}_{args.tag}"
     experiment_name = f"arrival_gen_{policy}_{label}"
     output_summary = summary_path(policy, experiment_name)
     if output_summary.exists() and not args.force:
-        print(f"[Skip] {policy.upper()} {scenario_slug(mld, sld)} mu={rate:g}: {output_summary}")
+        print(
+            f"[Skip] {policy.upper()} {scenario_slug(mld, sld)} "
+            f"{profile_slug(profile_case)}: {output_summary}"
+        )
         return experiment_name, output_summary
 
     module = (
@@ -147,7 +264,7 @@ def run_eval(args, policy: str, mld: int, sld: int, rate: float):
         sys.executable,
         "-m",
         module,
-        *build_common_args(args, mld, sld, rate, experiment_name),
+        *build_common_args(args, mld, sld, profile_case, experiment_name),
     ]
     if policy == "rl":
         command.extend(
@@ -168,7 +285,10 @@ def run_eval(args, policy: str, mld: int, sld: int, rate: float):
     if env.get("PYTHONPATH"):
         python_paths.append(env["PYTHONPATH"])
     env["PYTHONPATH"] = os.pathsep.join(python_paths)
-    print(f"[Run] {policy.upper()} {scenario_slug(mld, sld)} mu={rate:g}")
+    print(
+        f"[Run] {policy.upper()} {scenario_slug(mld, sld)} "
+        f"{profile_slug(profile_case)} mean_mu={profile_case['stats']['mean_mu']:.4f}"
+    )
     try:
         subprocess.run(command, cwd=str(repo_root()), env=env, check=True)
     except subprocess.CalledProcessError:
@@ -190,14 +310,25 @@ def load_summary(path: Path):
 def collect_rows(run_records):
     rows = []
     for record in run_records:
-        mld, sld, rate = record["mld"], record["sld"], record["rate"]
+        mld, sld = record["mld"], record["sld"]
+        profile_case = record["profile_case"]
+        profile_stats = profile_case["stats"]
         beb = load_summary(record["beb_summary"])
         rl = load_summary(record["rl_summary"])
         row = {
             "scenario": scenario_slug(mld, sld),
             "num_mld": mld,
             "num_sld": sld,
-            "mu": rate,
+            "profile": profile_slug(profile_case),
+            "profile_mode": profile_case["mode"],
+            "profile_seed": "" if profile_case["seed"] is None else profile_case["seed"],
+            "mean_mu": profile_stats["mean_mu"],
+            "min_mu": profile_stats["min_mu"],
+            "max_mu": profile_stats["max_mu"],
+            "std_mu": profile_stats["std_mu"],
+            "low_ood_fraction": profile_stats["low_ood_fraction"],
+            "high_ood_fraction": profile_stats["high_ood_fraction"],
+            "ood_fraction": profile_stats["ood_fraction"],
         }
         for key in METRIC_KEYS:
             beb_value = float(beb.get(key, 0.0))
@@ -260,6 +391,8 @@ def upload_wandb(args, rows, csv_path: Path, json_path: Path, plot_paths):
         config={
             "tag": args.tag,
             "scenarios": [scenario_slug(mld, sld) for mld, sld in args.scenario],
+            "profile_mode": args.profile_mode,
+            "profile_seed": args.profile_seed,
             "rates": args.rates,
             "model_dir": str(args.model_dir),
             "eval_duration_sec": args.eval_duration_sec,
@@ -344,18 +477,32 @@ def save_plots(output_dir: Path, tag: str, rows):
             axes = [axes]
 
         for ax, scenario in zip(axes, scenarios):
-            scenario_rows = sorted(
-                [row for row in rows if row["scenario"] == scenario],
-                key=lambda row: row["mu"],
+            scenario_rows = [row for row in rows if row["scenario"] == scenario]
+            grouped = {}
+            for row in scenario_rows:
+                grouped.setdefault(row["profile"], []).append(row)
+            profile_names = sorted(
+                grouped,
+                key=lambda name: (
+                    sum(row["mean_mu"] for row in grouped[name]) / len(grouped[name]),
+                    name,
+                ),
             )
-            x_values = [row["mu"] for row in scenario_rows]
-            beb_values = [row[f"beb/{metric_key}"] for row in scenario_rows]
-            rl_values = [row[f"rl/{metric_key}"] for row in scenario_rows]
+            x_values = list(range(len(profile_names)))
+            beb_values = [
+                sum(row[f"beb/{metric_key}"] for row in grouped[name]) / len(grouped[name])
+                for name in profile_names
+            ]
+            rl_values = [
+                sum(row[f"rl/{metric_key}"] for row in grouped[name]) / len(grouped[name])
+                for name in profile_names
+            ]
             ax.plot(x_values, beb_values, marker="o", linewidth=2.0, label="BEB")
             ax.plot(x_values, rl_values, marker="s", linewidth=2.0, label="RL")
-            ax.axvspan(0.01, 0.12, color="#e5e7eb", alpha=0.55, label="train mu range")
             ax.set_title(scenario)
-            ax.set_xlabel("packet arrival rate mu")
+            ax.set_xlabel("traffic profile")
+            ax.set_xticks(x_values)
+            ax.set_xticklabels(profile_names, rotation=25, ha="right", fontsize=8)
             ax.grid(axis="y", alpha=0.25)
             ax.legend(frameon=False, fontsize=8)
 
@@ -380,7 +527,30 @@ def parse_args():
         default=None,
         help="Topology to evaluate, e.g. m10_s5 or 10:5. Can be repeated.",
     )
-    parser.add_argument("--rates", nargs="+", type=float, default=DEFAULT_RATES)
+    parser.add_argument(
+        "--profile_mode",
+        nargs="+",
+        choices=PROFILE_MODE_CHOICES,
+        default=DEFAULT_PROFILE_MODES,
+        help=(
+            "Traffic profile modes. Use uniform_sweep to reproduce the old "
+            "mu_min=mu_max sweep over --rates."
+        ),
+    )
+    parser.add_argument(
+        "--profile_seed",
+        nargs="+",
+        type=int,
+        default=[1],
+        help="Seeds used to generate random heterogeneous traffic profiles.",
+    )
+    parser.add_argument(
+        "--rates",
+        nargs="+",
+        type=float,
+        default=DEFAULT_RATES,
+        help="Uniform rates used only when --profile_mode includes uniform_sweep.",
+    )
     parser.add_argument("--model_dir", type=Path, default=default_model_dir())
     parser.add_argument("--output_dir", type=str, default="scripts/eval_results/WiFi_v9/arrival_generalization")
     parser.add_argument("--tag", type=str, default="m10_s5")
@@ -421,14 +591,14 @@ def main():
     args = parse_args()
     run_records = []
     for mld, sld in args.scenario:
-        for rate in args.rates:
-            beb_exp, beb_summary = run_eval(args, "beb", mld, sld, rate)
-            rl_exp, rl_summary = run_eval(args, "rl", mld, sld, rate)
+        for profile_case in build_profile_cases(args, mld):
+            beb_exp, beb_summary = run_eval(args, "beb", mld, sld, profile_case)
+            rl_exp, rl_summary = run_eval(args, "rl", mld, sld, profile_case)
             run_records.append(
                 {
                     "mld": mld,
                     "sld": sld,
-                    "rate": rate,
+                    "profile_case": profile_case,
                     "beb_experiment": beb_exp,
                     "rl_experiment": rl_exp,
                     "beb_summary": beb_summary,
