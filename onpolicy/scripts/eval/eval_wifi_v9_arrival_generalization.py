@@ -235,6 +235,89 @@ def save_outputs(args, rows):
     print(f"  {json_path}")
     for path in plot_paths:
         print(f"  {path}")
+    return csv_path, json_path, plot_paths
+
+
+def upload_wandb(args, rows, csv_path: Path, json_path: Path, plot_paths):
+    if not args.wandb_project:
+        return
+
+    try:
+        import wandb
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "wandb is required when --wandb_project is provided."
+        ) from exc
+
+    run_name = args.wandb_run_name or f"{args.tag}_arrival_generalization"
+    group_name = args.wandb_group or "wifi_v9_arrival_generalization"
+    run = wandb.init(
+        project=args.wandb_project,
+        entity=args.wandb_entity,
+        group=group_name,
+        name=run_name,
+        job_type="arrival_generalization",
+        config={
+            "tag": args.tag,
+            "scenarios": [scenario_slug(mld, sld) for mld, sld in args.scenario],
+            "rates": args.rates,
+            "model_dir": str(args.model_dir),
+            "eval_duration_sec": args.eval_duration_sec,
+            "eval_episodes": args.eval_episodes,
+            "seed": args.seed,
+            "deterministic": args.deterministic,
+            "max_mld": args.max_mld,
+            "max_sld": args.max_sld,
+            "round_length": args.round_length,
+            "eta": args.eta,
+            "zeta": args.zeta,
+            "c_idle": args.c_idle,
+            "collision_penalty": args.collision_penalty,
+            "non_top_tx_penalty": args.non_top_tx_penalty,
+            "theta_scale": args.theta_scale,
+            "sld_target_low_scale": args.sld_target_low_scale,
+            "sld_target_high_scale": args.sld_target_high_scale,
+            "sld_target_bonus": args.sld_target_bonus,
+            "mld_success_reward": args.mld_success_reward,
+            "slot_time_sec": args.slot_time_sec,
+        },
+        reinit=True,
+    )
+
+    if rows:
+        columns = list(rows[0].keys())
+        table = wandb.Table(columns=columns)
+        for row in rows:
+            table.add_data(*[row[key] for key in columns])
+    else:
+        table = wandb.Table(columns=[])
+
+    image_payload = {
+        f"figures/{path.stem}": wandb.Image(str(path))
+        for path in plot_paths
+    }
+    artifact = wandb.Artifact(
+        name=f"{args.tag}_arrival_generalization_outputs",
+        type="eval_results",
+    )
+    artifact.add_file(str(csv_path))
+    artifact.add_file(str(json_path))
+    for path in plot_paths:
+        artifact.add_file(str(path))
+
+    wandb.log(
+        {
+            "arrival_generalization/table": table,
+            "arrival_generalization/row_count": len(rows),
+            **image_payload,
+        }
+    )
+    run.log_artifact(artifact)
+    run.finish()
+    print(
+        f"[W&B] Uploaded arrival generalization results to "
+        f"{args.wandb_project}/{run_name}"
+    )
 
 
 def save_plots(output_dir: Path, tag: str, rows):
@@ -322,6 +405,10 @@ def parse_args():
     parser.add_argument("--sld_target_bonus", type=float, default=0.5)
     parser.add_argument("--mld_success_reward", type=float, default=1.0)
     parser.add_argument("--slot_time_sec", type=float, default=9e-6)
+    parser.add_argument("--wandb_project", type=str, default=None)
+    parser.add_argument("--wandb_group", type=str, default=None)
+    parser.add_argument("--wandb_run_name", type=str, default=None)
+    parser.add_argument("--wandb_entity", type=str, default=None)
     args = parser.parse_args()
     if args.scenario is None:
         args.scenario = [(10, 5)]
@@ -350,7 +437,8 @@ def main():
             )
 
     rows = collect_rows(run_records)
-    save_outputs(args, rows)
+    csv_path, json_path, plot_paths = save_outputs(args, rows)
+    upload_wandb(args, rows, csv_path, json_path, plot_paths)
 
 
 if __name__ == "__main__":
